@@ -1,4 +1,33 @@
 /**
+ * Represents a guest
+ */
+export interface Guest {
+  /** Unique identifier for the guest */
+  id: string
+
+  /** Guest's first name */
+  firstName: string
+
+  /** Guest's last name */
+  lastName: string
+
+  /** Table assignment (null if unassigned) */
+  tableId: string | null
+
+  /** Email address */
+  email?: string
+
+  /** Phone number */
+  phone?: string
+
+  /** RSVP status */
+  rsvpStatus?: string
+
+  /** Dietary restrictions */
+  dietaryRestrictions?: string
+}
+
+/**
  * Represents a single table on the canvas
  */
 export interface Table {
@@ -19,6 +48,9 @@ export interface Table {
 
   /** Creation timestamp */
   createdAt: number
+
+  /** IDs of guests assigned to this table */
+  guestIds: string[]
 }
 
 /**
@@ -42,8 +74,14 @@ export interface PlannerState {
   /** Array of all tables on the canvas */
   tables: Table[]
 
+  /** Array of all guests */
+  guests: Guest[]
+
   /** ID of currently selected table (if any) */
   selectedTableId: string | null
+
+  /** ID of currently highlighted guest (if any) */
+  highlightedGuestId: string | null
 
   /** Canvas configuration */
   canvasSettings: CanvasSettings

@@ -3,6 +3,7 @@ import { useTablePlannerStore } from '../stores/tablePlanner'
 import { TABLE_DEFAULTS } from '../types'
 import PlannerToolbar from './PlannerToolbar.vue'
 import PlannerCanvas from './PlannerCanvas.vue'
+import GuestList from './GuestList.vue'
 
 const store = useTablePlannerStore()
 
@@ -41,15 +42,18 @@ function handleSeatCountUpdate(id: string, seatCount: number) {
 <template>
   <div class="wedding-planner">
     <PlannerToolbar @add:table="handleAddTable" />
-    <div class="canvas-container">
-      <PlannerCanvas
-        :tables="store.tables"
-        :selected-table-id="store.selectedTableId"
-        :canvas-settings="store.canvasSettings"
-        @update:position="handlePositionUpdate"
-        @select:table="handleTableSelect"
-        @update:seat-count="handleSeatCountUpdate"
-      />
+    <div class="main-content">
+      <GuestList class="guest-pane" />
+      <div class="canvas-container">
+        <PlannerCanvas
+          :tables="store.tables"
+          :selected-table-id="store.selectedTableId"
+          :canvas-settings="store.canvasSettings"
+          @update:position="handlePositionUpdate"
+          @select:table="handleTableSelect"
+          @update:seat-count="handleSeatCountUpdate"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -61,6 +65,17 @@ function handleSeatCountUpdate(id: string, seatCount: number) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.guest-pane {
+  width: 320px;
+  flex-shrink: 0;
 }
 
 .canvas-container {

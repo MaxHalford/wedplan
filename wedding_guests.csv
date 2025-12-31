@@ -1,0 +1,51 @@
+Guest_ID,First_Name,Last_Name,Email,Phone,Relationship,RSVP_Status,Dietary_Restrictions,Plus_One,Table_Number,Gift_Received
+1,Chad,Broseph,chad.bro@gainz.com,555-0101,Groom's Gym Buddy,Accepted,Only eats chicken and rice,Yes,7,Protein powder set
+2,Brenda,Awkwardsilence,brenda.awk@hotmail.com,555-0102,Bride's Middle School Enemy,Declined,None,No,0,Passive-aggressive card
+3,Uncle,Inappropriate,uncle.i@familyreunions.net,555-0103,Groom's Uncle,Accepted,Refuses vegetables,Yes,12,Opened bar tab early
+4,Karen,Complainsalot,karen.mgr@speaktoyour.com,555-0104,Bride's Former Boss,Accepted,Gluten-free (self-diagnosed),No,3,Returned gift twice
+5,DJ,Actualname,dj.real@turntables.com,555-0105,Friend from College,Accepted,None,Yes,8,Offered to DJ for free
+6,Grandma,Forgetful,nana@aol.com,555-0106,Groom's Grandmother,Accepted,Soft foods only,No,1,Asked who's getting married
+7,Brad,Stillsingle,brad.why@dating.com,555-0107,Groom's Best Man,Accepted,Keto (mentions it hourly),No,5,Cried during speech
+8,Stacy,Exgirlfriend,stacy.awk@yikes.com,555-0108,Groom's Ex,Declined,N/A,No,0,Sent congratulations... sort of
+9,Dave,Crasher,dave.notinvited@gmail.com,555-0109,Unknown,Accepted,Will eat anything,Yes,0,How did he get in here?
+10,Linda,Overemotional,linda.tears@tissue.com,555-0110,Bride's Aunt,Accepted,None,Yes,2,Cried through entire ceremony
+11,Bob,Dadjoker,bob.puns@comedy.net,555-0111,Groom's Father,Accepted,None,No,1,Speech was 40% puns
+12,Crystal,Psychic,crystal.future@mystic.com,555-0112,Bride's Yoga Instructor,Tentative,Vegan + crystals only,Yes,9,Predicted divorce (awkward)
+13,Mike,Microphone,mike.singer@karaoke.com,555-0113,College Roommate,Accepted,None,Yes,8,Sang during dinner
+14,Patricia,Photographer,pat.camera@snap.com,555-0114,Bride's Friend,Accepted,Pescatarian,No,4,Took 4000 photos
+15,Gary,Conspiracy,gary.truth@illuminati.net,555-0115,Coworker,Accepted,Non-GMO only,No,11,Thinks wedding is fake
+16,Jennifer,Mlmboss,jen.bossbabe@pyramid.com,555-0116,Bride's Cousin,Accepted,None,Yes,6,Pitched essential oils
+17,Tom,Toomuch,tom.party@blackout.com,555-0117,Groom's Fraternity Brother,Accepted,None,Yes,10,Left in ambulance
+18,Susan,Vaguebooker,susan.drama@facebook.com,555-0118,Bride's Coworker,Accepted,None,No,3,Live-tweeted ceremony
+19,Frank,Frankly,frank.honest@truth.com,555-0119,Groom's Uncle,Accepted,Meat only,No,12,Too honest in speech
+20,Rachel,Bridesmaidzilla,rachel.drama@wedding.com,555-0120,Bride's Maid of Honor,Accepted,Gluten-free,No,5,Wore white (accident?)
+21,Kevin,Kevinalone,kevin.home@movies.com,555-0121,Ring Bearer,Accepted,Chicken nuggets,No,1,Lost the rings
+22,Meredith,Wineoclock,meredith.cork@vineyard.com,555-0122,Bride's College Friend,Accepted,None,Yes,4,Finished 3 bottles solo
+23,Phil,Philosophy,phil.deep@existential.edu,555-0123,Groom's Professor,Tentative,Vegetarian,No,9,Debated vows meaning
+24,Debbie,Downer,debbie.rain@cloud.com,555-0124,Bride's Neighbor,Accepted,None,No,11,Mentioned divorce rates
+25,Tyler,Tinder,tyler.swipe@dating.app,555-0125,Groom's Friend,Accepted,Paleo,No,10,Swiping during vows
+26,Amanda,Allergic,amanda.epipen@hospital.com,555-0126,Bride's Friend,Accepted,Allergic to everything,Yes,2,Brought own food
+27,Greg,Guitarist,greg.music@unplugged.com,555-0127,Cousin,Accepted,None,Yes,8,Brought acoustic guitar
+28,Cindy,Singlesoon,cindy.lawyer@divorce.com,555-0128,Bride's Attorney Friend,Declined,None,No,0,Sent prenup template
+29,Walter,Wealthy,walter.money@richguy.com,555-0129,Groom's Mentor,Accepted,None,Yes,1,Gave suspiciously large check
+30,Tiffany,Teenager,tiffany.tiktoker@gen.z,555-0130,Bride's Niece,Accepted,Only pizza,No,7,Filmed everything
+31,Roger,Rambler,roger.stories@longwinded.com,555-0131,Groom's Grandfather,Accepted,Low sodium,No,1,45-minute toast
+32,Vanessa,Vegan,vanessa.plants@herbivore.org,555-0132,College Friend,Accepted,Vegan (told everyone),Yes,9,Judged meat eaters
+33,Nick,Napster,nick.snooze@sleepy.com,555-0133,Coworker,Accepted,None,No,11,Napped during ceremony
+34,Olivia,Organized,olivia.planner@type.a,555-0134,Bride's Sister,Accepted,None,Yes,5,Took over planning
+35,Paul,Politician,paul.vote@campaign.gov,555-0135,Bride's Uncle,Accepted,None,Yes,12,Gave stump speech
+36,Quinn,Questionable,quinn.hmm@suspicious.com,555-0136,Plus One of Plus One,Accepted,None,No,10,Nobody knows them
+37,Rita,Reunion,rita.highschool@nostalgia.com,555-0137,Bride's Old Friend,Accepted,None,No,6,Brought yearbook
+38,Steve,Sweaty,steve.dance@moves.com,555-0138,Groom's Dance Partner,Accepted,Low-carb,Yes,8,Danced for 5 hours
+39,Tammy,Toddler,tammy.mom@chaos.com,555-0139,Bride's Friend,Accepted,None,Yes (3 kids),2,Kids destroyed cake
+40,Victor,Videographer,victor.film@documentary.com,555-0140,Friend,Accepted,None,Yes,4,Made it weird and artsy
+41,Wendy,Weatherlady,wendy.forecast@news.com,555-0141,Local Celebrity,Accepted,None,No,3,Predicted rain (was right)
+42,Xavier,Xerox,xavier.copy@office.com,555-0142,Groom's Coworker,Tentative,None,No,11,Photocopied butt
+43,Yolanda,Yoga,yolanda.namaste@flexible.com,555-0143,Bride's Instructor,Accepted,Raw food only,Yes,9,Did yoga during cocktail hour
+44,Zachary,Zoologist,zach.animals@zoo.org,555-0144,Childhood Friend,Accepted,None,Yes,7,Brought service peacock
+45,Agnes,Ancient,agnes.old@century.net,555-0145,Great Aunt,Accepted,Dentures-friendly,No,1,Thought it was a funeral
+46,Bernard,Boring,bernard.snore@dull.com,555-0146,Distant Relative,Declined,None,No,0,Too exciting for him
+47,Candy,Cateringthief,candy.doggy@bag.com,555-0147,Bride's Friend,Accepted,None,No,6,Stole centerpieces
+48,Dennis,Drone,dennis.aerial@video.com,555-0148,Groom's Friend,Accepted,None,Yes,10,Drone crashed in cake
+49,Eleanor,Elderly,eleanor.sweet@bingo.net,555-0149,Bride's Grandmother,Accepted,Soft foods,No,1,Gave $20 and candy
+50,Felix,Photographer,felix.uninvited@freelance.com,555-0150,Crashed,Accepted,None,No,0,Not the hired photographer

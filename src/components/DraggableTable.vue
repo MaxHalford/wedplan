@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import { useGesture } from '@vueuse/gesture'
+import { useTablePlannerStore } from '../stores/tablePlanner'
 import type { Table } from '../types'
 import { TABLE_DEFAULTS } from '../types'
 import SeatCountEditor from './SeatCountEditor.vue'
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const store = useTablePlannerStore()
 
 const emit = defineEmits<{
   'update:position': [id: string, x: number, y: number]
@@ -87,6 +89,31 @@ function handleSeatCountUpdate(newCount: number) {
   emit('update:seatCount', props.table.id, newCount)
   isEditing.value = false
 }
+
+// Get guests assigned to this table
+const tableGuests = computed(() => {
+  return store.getGuestsForTable(props.table.id)
+})
+
+// Calculate positions for guest initials around the table
+const guestPositions = computed(() => {
+  const guests = tableGuests.value
+  const count = guests.length
+  const radius = TABLE_DEFAULTS.WIDTH / 2 + 20 // Position outside the table
+
+  return guests.map((guest, index) => {
+    const angle = (index / count) * 2 * Math.PI - Math.PI / 2 // Start from top
+    const x = radius * Math.cos(angle)
+    const y = radius * Math.sin(angle)
+
+    return {
+      guest,
+      x,
+      y,
+      initials: `${guest.firstName.charAt(0)}${guest.lastName.charAt(0)}`.toUpperCase(),
+    }
+  })
+})
 </script>
 
 <template>
@@ -109,6 +136,21 @@ function handleSeatCountUpdate(newCount: number) {
       <div v-else class="seat-count">
         {{ table.seatCount }}
       </div>
+    </div>
+
+    <!-- Guest initials around the table -->
+    <div
+      v-for="pos in guestPositions"
+      :key="pos.guest.id"
+      class="guest-initial"
+      :class="{ highlighted: pos.guest.id === store.highlightedGuestId }"
+      :style="{
+        left: `calc(50% + ${pos.x}px)`,
+        top: `calc(50% + ${pos.y}px)`,
+      }"
+      :title="`${pos.guest.firstName} ${pos.guest.lastName}`"
+    >
+      {{ pos.initials }}
     </div>
   </div>
 </template>
@@ -177,5 +219,36 @@ function handleSeatCountUpdate(newCount: number) {
   color: var(--burgundy);
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
   pointer-events: none;
+}
+
+.guest-initial {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--burgundy);
+  color: var(--parchment-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-elegant);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 2px 4px var(--shadow-brown);
+  border: 2px solid var(--parchment-light);
+  transition: all var(--transition-medium);
+}
+
+.guest-initial.highlighted {
+  background: var(--gold);
+  color: var(--ink-black);
+  border-color: var(--gold);
+  box-shadow:
+    0 2px 4px var(--shadow-brown),
+    0 0 0 3px rgba(212, 175, 55, 0.5);
+  transform: translate(-50%, -50%) scale(1.2);
+  z-index: 10;
 }
 </style>
