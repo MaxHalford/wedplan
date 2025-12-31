@@ -49,10 +49,7 @@ function getGroupInitials(guestNames: string[]): string {
 <template>
   <div class="guest-list">
     <div class="guest-list-header">
-      <h2><span class="drop-cap">G</span>uests</h2>
-      <div class="guest-count">
-        {{ store.totalGuestCount }} total
-      </div>
+      <h2>Guests ({{ store.totalGuestCount }})</h2>
     </div>
 
     <div v-if="store.groups.length === 0" class="empty-state">
@@ -137,52 +134,18 @@ function getGroupInitials(guestNames: string[]): string {
 }
 
 .guest-list-header {
-  padding: var(--spacing-lg);
-  border-bottom: 3px solid var(--ornate-border);
-  background:
-    linear-gradient(to bottom, var(--parchment-light), var(--parchment-medium)),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(139, 105, 20, 0.03) 2px,
-      rgba(139, 105, 20, 0.03) 4px
-    );
-  box-shadow: 0 2px 4px var(--shadow-brown);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 2px solid var(--ornate-border);
+  background: var(--parchment-light);
 }
 
 .guest-list-header h2 {
   margin: 0;
-  font-size: 1.75rem;
-  color: var(--burgundy);
-  display: flex;
-  align-items: center;
-  gap: 0.1em;
-}
-
-.drop-cap {
-  font-family: var(--font-decorative);
-  font-size: 2.5rem;
-  color: var(--deep-red);
-  text-shadow:
-    1px 1px 0 var(--gold),
-    0 0 6px rgba(212, 175, 55, 0.3);
-  line-height: 1;
-  font-weight: 700;
-  margin-right: -0.05em;
-}
-
-.guest-count {
   font-family: var(--font-elegant);
-  color: var(--faded-text);
-  font-size: 0.85rem;
-  background: rgba(212, 197, 170, 0.3);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: 3px;
-  border: 1px solid var(--parchment-dark);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--burgundy);
+  letter-spacing: 0.02em;
 }
 
 .empty-state {
