@@ -204,7 +204,55 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       this.tables.push(newTable)
 
       // Automatically optimize assignments when a new table is added
-      if (this.groups.length > 0) {
+      if (this.groups.length > 0 && this.hasEnoughSeats) {
+        this.triggerOptimization()
+      }
+
+      this.persistState(true) // Immediate save for table creation
+    },
+
+    /**
+     * Add multiple tables at once with specified seat count.
+     * Tables are positioned in a grid layout on the canvas.
+     *
+     * Args:
+     *   count: Number of tables to create (1-20).
+     *   seatsPerTable: Number of seats per table (2-20).
+     */
+    addMultipleTables(count: number, seatsPerTable: number): void {
+      const clampedCount = Math.max(1, Math.min(20, count))
+      const clampedSeats = Math.max(
+        TABLE_DEFAULTS.MIN_SEAT_COUNT,
+        Math.min(TABLE_DEFAULTS.MAX_SEAT_COUNT, seatsPerTable)
+      )
+
+      // Calculate grid dimensions
+      const cols = Math.ceil(Math.sqrt(clampedCount))
+      const tableSpacingX = TABLE_DEFAULTS.WIDTH + 40
+      const tableSpacingY = TABLE_DEFAULTS.HEIGHT + 60
+
+      // Calculate starting position to center the grid
+      const gridWidth = cols * tableSpacingX
+      const gridHeight = Math.ceil(clampedCount / cols) * tableSpacingY
+      const startX = Math.max(20, (this.canvasSettings.width - gridWidth) / 2)
+      const startY = Math.max(20, (this.canvasSettings.height - gridHeight) / 2)
+
+      for (let i = 0; i < clampedCount; i++) {
+        const col = i % cols
+        const row = Math.floor(i / cols)
+
+        const newTable: Table = {
+          id: crypto.randomUUID(),
+          x: startX + col * tableSpacingX,
+          y: startY + row * tableSpacingY,
+          seatCount: clampedSeats,
+          createdAt: Date.now(),
+        }
+        this.tables.push(newTable)
+      }
+
+      // Trigger optimization after all tables are added if we have enough seats
+      if (this.groups.length > 0 && this.hasEnoughSeats) {
         this.triggerOptimization()
       }
 
@@ -236,8 +284,8 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         )
         this.persistState()
 
-        // Re-optimize when capacity changes
-        if (this.groups.length > 0) {
+        // Re-optimize when capacity changes if we have enough seats
+        if (this.groups.length > 0 && this.hasEnoughSeats) {
           this.triggerOptimization()
         }
       }
@@ -324,8 +372,8 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
             this.persistState(true) // Immediate save for CSV import
             resolve()
 
-            // If tables exist, trigger optimization
-            if (this.tables.length > 0) {
+            // If tables exist and we have enough seats, trigger optimization
+            if (this.tables.length > 0 && this.hasEnoughSeats) {
               this.triggerOptimization()
             }
           },
@@ -476,8 +524,8 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
 
       this.persistState()
 
-      // Re-optimize when constraints change
-      if (this.tables.length > 0) {
+      // Re-optimize when constraints change if we have enough seats
+      if (this.tables.length > 0 && this.hasEnoughSeats) {
         this.triggerOptimization()
       }
     },

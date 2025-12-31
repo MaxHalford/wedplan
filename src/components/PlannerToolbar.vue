@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useOnboarding } from '../composables/useOnboarding'
 import { useTablePlannerStore } from '../stores/tablePlanner'
+import { TABLE_DEFAULTS } from '../types'
 
 const emit = defineEmits<{
   'add:table': []
@@ -13,8 +14,42 @@ const emit = defineEmits<{
 const store = useTablePlannerStore()
 const { isActive, currentStep, showCSVHelper, restart, OnboardingStep } = useOnboarding()
 const showRestartConfirm = ref(false)
+const showAddTableDropdown = ref(false)
+
+// Multi-table creation inputs
+const tableCount = ref(1)
+const seatsPerTable = ref(TABLE_DEFAULTS.DEFAULT_SEAT_COUNT)
 
 const fileInput = ref<HTMLInputElement>()
+
+// Seat capacity computed properties
+const seatProgress = computed(() => {
+  if (store.totalGuestCount === 0) return 0
+  return Math.min(100, (store.totalSeatCount / store.totalGuestCount) * 100)
+})
+
+const seatBarColorClass = computed(() => {
+  if (store.totalGuestCount === 0) return 'neutral'
+  if (store.hasEnoughSeats) return 'sufficient'
+  return 'insufficient'
+})
+
+// Initialize table count to suggested value when dropdown opens
+function toggleAddTableDropdown() {
+  showAddTableDropdown.value = !showAddTableDropdown.value
+  if (showAddTableDropdown.value) {
+    tableCount.value = Math.max(1, store.suggestedTableCount - store.tables.length)
+  }
+}
+
+function closeAddTableDropdown() {
+  showAddTableDropdown.value = false
+}
+
+function handleCreateTables() {
+  store.addMultipleTables(tableCount.value, seatsPerTable.value)
+  closeAddTableDropdown()
+}
 
 // Compute button classes based on onboarding state
 const importButtonClasses = computed(() => ({
@@ -35,10 +70,6 @@ const matchButtonClasses = computed(() => ({
 const downloadButtonClasses = computed(() => ({
   'onboarding-dimmed': isActive.value && !showCSVHelper.value && currentStep.value !== OnboardingStep.COMPLETE,
 }))
-
-function handleAddTable() {
-  emit('add:table')
-}
 
 function triggerFileInput() {
   fileInput.value?.click()
@@ -99,14 +130,86 @@ function handleRestartCancel() {
         <span class="button-icon">💕</span>
         Match Groups
       </button>
-      <button
-        @click="handleAddTable"
-        class="toolbar-button add-table-button"
-        :class="addTableButtonClasses"
-      >
-        <span class="button-icon">+</span>
-        Add Table
-      </button>
+      <div class="add-table-wrapper">
+        <button
+          @click="toggleAddTableDropdown"
+          class="toolbar-button add-table-button"
+          :class="addTableButtonClasses"
+        >
+          <span class="button-icon">+</span>
+          Add Table
+        </button>
+
+        <!-- Add Table Dropdown Panel -->
+        <div v-if="showAddTableDropdown" class="add-table-dropdown">
+          <button class="dropdown-close" @click="closeAddTableDropdown">×</button>
+          <div class="dropdown-header">
+            <span class="step-badge">Step 2/3</span>
+            <h3>Add Your Tables</h3>
+          </div>
+          <p class="dropdown-subtitle">
+            Add tables to seat your {{ store.totalGuestCount }} guests.
+          </p>
+
+          <!-- Seat Capacity Progress Bar -->
+          <div class="seat-progress-container">
+            <div class="seat-progress-bar" :class="seatBarColorClass">
+              <div class="seat-progress-fill" :style="{ width: `${seatProgress}%` }"></div>
+            </div>
+            <div class="seat-progress-text">
+              {{ store.totalSeatCount }} / {{ store.totalGuestCount }} seats
+            </div>
+          </div>
+
+          <!-- Table Creation Inputs -->
+          <div class="table-inputs">
+            <div class="input-group">
+              <label>Tables</label>
+              <input
+                type="number"
+                v-model.number="tableCount"
+                min="1"
+                max="20"
+                class="table-input"
+              />
+            </div>
+            <span class="input-separator">×</span>
+            <div class="input-group">
+              <label>Seats</label>
+              <input
+                type="number"
+                v-model.number="seatsPerTable"
+                :min="TABLE_DEFAULTS.MIN_SEAT_COUNT"
+                :max="TABLE_DEFAULTS.MAX_SEAT_COUNT"
+                class="table-input"
+              />
+            </div>
+            <button @click="handleCreateTables" class="create-btn">
+              Create
+            </button>
+          </div>
+
+          <p class="dropdown-hint">
+            Or click 'Add Table' / drag tables on the canvas
+          </p>
+
+          <div class="dropdown-actions">
+            <button
+              @click="handleStartMatching(); closeAddTableDropdown()"
+              class="action-btn primary-btn"
+              :disabled="!store.hasEnoughSeats"
+            >
+              Continue to Preferences
+            </button>
+            <button
+              @click="handleStartMatching(); closeAddTableDropdown()"
+              class="action-btn secondary-btn"
+            >
+              Skip to Preferences
+            </button>
+          </div>
+        </div>
+      </div>
       <button
         @click="handleDownloadPDF"
         class="toolbar-button download-button"
@@ -403,5 +506,245 @@ function handleRestartCancel() {
 .confirm-btn-confirm:hover {
   background: linear-gradient(to bottom, var(--burgundy), var(--deep-red));
   box-shadow: 0 4px 12px rgba(139, 26, 26, 0.4);
+}
+
+/* Add Table Dropdown */
+.add-table-wrapper {
+  position: relative;
+}
+
+.add-table-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: var(--parchment-light);
+  border: 3px solid var(--ornate-border);
+  border-radius: 8px;
+  padding: var(--spacing-lg);
+  box-shadow: 0 8px 32px var(--shadow-brown);
+  z-index: 100;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-close {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  color: var(--faded-text);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.dropdown-close:hover {
+  color: var(--burgundy);
+}
+
+.dropdown-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.step-badge {
+  display: inline-block;
+  background: var(--gold);
+  color: var(--ink-black);
+  font-family: var(--font-elegant);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: var(--spacing-xs);
+}
+
+.dropdown-header h3 {
+  margin: 0;
+  font-family: var(--font-elegant);
+  font-size: 1.1rem;
+  color: var(--burgundy);
+}
+
+.dropdown-subtitle {
+  margin: 0 0 var(--spacing-md) 0;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--brown-text);
+}
+
+/* Seat Progress Bar */
+.seat-progress-container {
+  margin-bottom: var(--spacing-md);
+}
+
+.seat-progress-bar {
+  height: 8px;
+  background: var(--parchment-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.seat-progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.seat-progress-bar.sufficient .seat-progress-fill {
+  background: linear-gradient(90deg, var(--forest-green), #4a7c3a);
+}
+
+.seat-progress-bar.insufficient .seat-progress-fill {
+  background: linear-gradient(90deg, var(--deep-red), var(--burgundy));
+}
+
+.seat-progress-bar.neutral .seat-progress-fill {
+  background: var(--gold);
+}
+
+.seat-progress-text {
+  font-family: var(--font-elegant);
+  font-size: 0.85rem;
+  color: var(--faded-text);
+  text-align: right;
+}
+
+/* Table Creation Inputs */
+.table-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.input-group label {
+  font-family: var(--font-elegant);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--faded-text);
+}
+
+.table-input {
+  width: 60px;
+  padding: var(--spacing-sm);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  border: 2px solid var(--ornate-border);
+  border-radius: 4px;
+  background: white;
+  color: var(--ink-black);
+}
+
+.table-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.input-separator {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--faded-text);
+  padding-bottom: var(--spacing-sm);
+}
+
+.create-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(to bottom, var(--gold), #c5a84a);
+  border: 2px solid var(--gold);
+  color: var(--ink-black);
+  font-family: var(--font-elegant);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.create-btn:hover {
+  background: linear-gradient(to bottom, #e0c55a, var(--gold));
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+}
+
+.dropdown-hint {
+  margin: 0 0 var(--spacing-md) 0;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--faded-text);
+  text-align: center;
+}
+
+.dropdown-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.action-btn {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-elegant);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.primary-btn {
+  background: linear-gradient(to bottom, var(--burgundy), var(--deep-red));
+  border: 2px solid var(--burgundy);
+  color: var(--parchment-light);
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: linear-gradient(to bottom, var(--deep-red), var(--burgundy));
+  box-shadow: 0 2px 8px rgba(139, 26, 26, 0.4);
+}
+
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-btn {
+  background: transparent;
+  border: 2px solid var(--ornate-border);
+  color: var(--brown-text);
+}
+
+.secondary-btn:hover {
+  background: var(--parchment-medium);
+  border-color: var(--gold);
 }
 </style>
