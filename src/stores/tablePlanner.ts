@@ -22,6 +22,8 @@ interface TablePlannerState {
   canvasSettings: CanvasSettings
   isOptimizing: boolean
   lastOptimizationStatus: SolverStatus | null
+  /** Maps tableId to ordered array of guest identifiers (format: "groupId:guestIndex") */
+  seatOrders: Record<string, string[]>
 }
 
 function loadStateFromLocalStorage(): Partial<TablePlannerState> {
@@ -83,6 +85,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       },
       isOptimizing: false,
       lastOptimizationStatus: null,
+      seatOrders: savedState.seatOrders || {},
     }
   },
 
@@ -100,6 +103,27 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     getGuestNamesForTable: (state) => (tableId: string) => {
       const groups = state.groups.filter(group => group.tableId === tableId)
       return groups.flatMap(group => group.guestNames)
+    },
+
+    /**
+     * Get ordered guest identifiers for a table.
+     * Returns custom seat order if set, otherwise generates default order from groups.
+     * Guest ID format: "groupId:guestIndex"
+     */
+    getSeatOrderForTable: (state) => (tableId: string): string[] => {
+      const customOrder = state.seatOrders[tableId]
+      if (customOrder && customOrder.length > 0) {
+        return customOrder
+      }
+      // Generate default order from groups assigned to this table
+      const groups = state.groups.filter(group => group.tableId === tableId)
+      const defaultOrder: string[] = []
+      for (const group of groups) {
+        for (let i = 0; i < group.guestNames.length; i++) {
+          defaultOrder.push(`${group.id}:${i}`)
+        }
+      }
+      return defaultOrder
     },
 
     /**
@@ -367,6 +391,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
             this.constraints = newConstraints
             this.selectedTableId = null
             this.highlightedGroupId = null
+            this.seatOrders = {}
 
             // Note: Optimization will run when user adds tables
             this.persistState(true) // Immediate save for CSV import
@@ -490,6 +515,40 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     },
 
     /**
+     * Swap the seat positions of two guests at the same table.
+     * Updates the seatOrders record to persist the new arrangement.
+     *
+     * Args:
+     *   tableId: The table where both guests are seated.
+     *   guestIdA: First guest identifier (format: "groupId:guestIndex").
+     *   guestIdB: Second guest identifier (format: "groupId:guestIndex").
+     */
+    swapGuestSeats(tableId: string, guestIdA: string, guestIdB: string): void {
+      if (guestIdA === guestIdB) {
+        return
+      }
+
+      // Get current seat order (or default)
+      const currentOrder = this.getSeatOrderForTable(tableId)
+      const indexA = currentOrder.indexOf(guestIdA)
+      const indexB = currentOrder.indexOf(guestIdB)
+
+      if (indexA === -1 || indexB === -1) {
+        console.warn('One or both guests not found in seat order')
+        return
+      }
+
+      // Create new order with swapped positions
+      const newOrder = [...currentOrder]
+      newOrder[indexA] = guestIdB
+      newOrder[indexB] = guestIdA
+
+      // Update the seat order for this table
+      this.seatOrders[tableId] = newOrder
+      this.persistState()
+    },
+
+    /**
      * Add a preference constraint between two groups
      */
     addPreferenceConstraint(group1Id: string, group2Id: string, preference: MatchPreference): void {
@@ -542,6 +601,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         selectedTableId: null, // Don't persist selection
         highlightedGroupId: null, // Don't persist highlight
         canvasSettings: this.canvasSettings,
+        seatOrders: this.seatOrders,
       }
 
       if (immediate) {
@@ -560,6 +620,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       this.constraints = []
       this.selectedTableId = null
       this.highlightedGroupId = null
+      this.seatOrders = {}
       this.persistState(true) // Immediate save for clearing state
     },
   },

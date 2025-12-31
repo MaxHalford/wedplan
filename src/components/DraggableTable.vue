@@ -25,6 +25,10 @@ const tableRef = ref<HTMLElement>()
 const isEditing = ref(false)
 const isDragging = ref(false)
 
+// Guest drag-and-drop state
+const draggedGuestId = ref<string | null>(null)
+const dropTargetGuestId = ref<string | null>(null)
+
 // Local position for smooth dragging
 const position = reactive({
   x: props.table.x,
@@ -96,34 +100,77 @@ const tableGroups = computed(() => {
   return store.getGroupsForTable(props.table.id)
 })
 
-// Get all guest names for this table (flattened from groups)
-const guestNames = computed(() => {
-  return store.getGuestNamesForTable(props.table.id)
+// Build a map from guestId to guest info for quick lookups
+const guestInfoMap = computed(() => {
+  const map = new Map<string, { name: string; groupId: string }>()
+  for (const group of tableGroups.value) {
+    for (let i = 0; i < group.guestNames.length; i++) {
+      const guestId = `${group.id}:${i}`
+      map.set(guestId, { name: group.guestNames[i], groupId: group.id })
+    }
+  }
+  return map
 })
 
-// Calculate positions for guest initials around the table
+// Calculate positions for guest initials around the table using seat order
 const guestPositions = computed(() => {
-  const names = guestNames.value
-  const count = names.length
+  const seatOrder = store.getSeatOrderForTable(props.table.id)
+  const count = seatOrder.length
   const radius = TABLE_DEFAULTS.WIDTH / 2 + 20 // Position outside the table
 
-  return names.map((name, index) => {
+  return seatOrder.map((guestId, index) => {
     const angle = (index / count) * 2 * Math.PI - Math.PI / 2 // Start from top
     const x = radius * Math.cos(angle)
     const y = radius * Math.sin(angle)
 
-    // Find which group this guest belongs to (for highlighting)
-    const group = tableGroups.value.find(g => g.guestNames.includes(name))
+    const info = guestInfoMap.value.get(guestId)
+    const name = info?.name ?? ''
+    const groupId = info?.groupId
 
     return {
+      guestId,
       name,
-      groupId: group?.id,
+      groupId,
       x,
       y,
       initials: getGuestInitials(name),
     }
   })
 })
+
+// Guest drag-and-drop handlers
+function handleGuestDragStart(event: DragEvent, guestId: string): void {
+  draggedGuestId.value = guestId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', guestId)
+  }
+}
+
+function handleGuestDragOver(event: DragEvent, guestId: string): void {
+  event.preventDefault()
+  if (draggedGuestId.value && draggedGuestId.value !== guestId) {
+    dropTargetGuestId.value = guestId
+  }
+}
+
+function handleGuestDragLeave(): void {
+  dropTargetGuestId.value = null
+}
+
+function handleGuestDrop(event: DragEvent, targetGuestId: string): void {
+  event.preventDefault()
+  if (draggedGuestId.value && draggedGuestId.value !== targetGuestId) {
+    store.swapGuestSeats(props.table.id, draggedGuestId.value, targetGuestId)
+  }
+  draggedGuestId.value = null
+  dropTargetGuestId.value = null
+}
+
+function handleGuestDragEnd(): void {
+  draggedGuestId.value = null
+  dropTargetGuestId.value = null
+}
 </script>
 
 <template>
@@ -145,23 +192,33 @@ const guestPositions = computed(() => {
       />
       <div v-else class="seat-info">
         <div class="seat-count">{{ table.seatCount }}</div>
-        <div v-if="guestNames.length > 0" class="seat-occupancy">
-          {{ guestNames.length }}/{{ table.seatCount }}
+        <div v-if="guestPositions.length > 0" class="seat-occupancy">
+          {{ guestPositions.length }}/{{ table.seatCount }}
         </div>
       </div>
     </div>
 
     <!-- Guest initials around the table -->
     <div
-      v-for="(pos, index) in guestPositions"
-      :key="`${props.table.id}-guest-${index}`"
+      v-for="pos in guestPositions"
+      :key="pos.guestId"
       class="guest-initial"
-      :class="{ highlighted: pos.groupId === store.highlightedGroupId }"
+      :class="{
+        highlighted: pos.groupId === store.highlightedGroupId,
+        dragging: pos.guestId === draggedGuestId,
+        'drop-target': pos.guestId === dropTargetGuestId,
+      }"
       :style="{
         left: `calc(50% + ${pos.x}px)`,
         top: `calc(50% + ${pos.y}px)`,
       }"
       :title="pos.name"
+      draggable="true"
+      @dragstart="handleGuestDragStart($event, pos.guestId)"
+      @dragover="handleGuestDragOver($event, pos.guestId)"
+      @dragleave="handleGuestDragLeave"
+      @drop="handleGuestDrop($event, pos.guestId)"
+      @dragend="handleGuestDragEnd"
     >
       {{ pos.initials }}
     </div>
@@ -265,10 +322,19 @@ const guestPositions = computed(() => {
   font-size: 0.75rem;
   font-weight: 600;
   transform: translate(-50%, -50%);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: grab;
   box-shadow: 0 2px 4px var(--shadow-brown);
   border: 2px solid var(--parchment-light);
   transition: all var(--transition-medium);
+  z-index: 5;
+}
+
+.guest-initial:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow:
+    0 3px 6px var(--shadow-brown),
+    0 0 0 2px rgba(212, 175, 55, 0.3);
 }
 
 .guest-initial.highlighted {
@@ -280,5 +346,22 @@ const guestPositions = computed(() => {
     0 0 0 3px rgba(212, 175, 55, 0.5);
   transform: translate(-50%, -50%) scale(1.2);
   z-index: 10;
+}
+
+.guest-initial.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(0.9);
+  z-index: 20;
+}
+
+.guest-initial.drop-target {
+  background: var(--gold);
+  border-color: var(--burgundy);
+  transform: translate(-50%, -50%) scale(1.25);
+  box-shadow:
+    0 4px 8px var(--shadow-brown),
+    0 0 0 4px rgba(212, 175, 55, 0.6);
+  z-index: 15;
 }
 </style>
