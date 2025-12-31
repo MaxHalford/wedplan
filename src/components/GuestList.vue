@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
 
 const store = useTablePlannerStore()
-const fileInput = ref<HTMLInputElement>()
 
 const sortedGuests = computed(() => {
   return [...store.guests].sort((a, b) => {
@@ -27,22 +26,6 @@ const guestsByTable = computed(() => {
   return grouped
 })
 
-function handleFileSelect(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-
-  if (file) {
-    store.importGuestsFromCSV(file).catch(error => {
-      console.error('Failed to import CSV:', error)
-      alert('Failed to import CSV file. Please check the format.')
-    })
-  }
-}
-
-function triggerFileInput() {
-  fileInput.value?.click()
-}
-
 function handleGuestClick(guestId: string) {
   store.highlightGuest(guestId)
 }
@@ -61,21 +44,10 @@ function getGuestInitials(firstName: string, lastName: string): string {
 <template>
   <div class="guest-list">
     <div class="guest-list-header">
-      <h2>Guests</h2>
-      <button @click="triggerFileInput" class="import-button">
-        Import CSV
-      </button>
-      <input
-        ref="fileInput"
-        type="file"
-        accept=".csv"
-        @change="handleFileSelect"
-        style="display: none"
-      />
-    </div>
-
-    <div class="guest-count">
-      {{ store.guests.length }} guests total
+      <h2><span class="drop-cap">G</span>uests</h2>
+      <div class="guest-count">
+        {{ store.guests.length }} total
+      </div>
     </div>
 
     <div v-if="store.guests.length === 0" class="empty-state">
@@ -155,31 +127,57 @@ function getGuestInitials(firstName: string, lastName: string): string {
   display: flex;
   flex-direction: column;
   background: var(--parchment-light);
-  border-right: 3px solid var(--ornate-border);
+  border-right: 4px double var(--ornate-border);
+  box-shadow: inset -2px 0 4px rgba(139, 105, 20, 0.1);
 }
 
 .guest-list-header {
   padding: var(--spacing-lg);
-  border-bottom: 2px solid var(--ornate-border);
-  background: linear-gradient(to bottom, var(--parchment-light), var(--parchment-medium));
+  border-bottom: 3px solid var(--ornate-border);
+  background:
+    linear-gradient(to bottom, var(--parchment-light), var(--parchment-medium)),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(139, 105, 20, 0.03) 2px,
+      rgba(139, 105, 20, 0.03) 4px
+    );
+  box-shadow: 0 2px 4px var(--shadow-brown);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .guest-list-header h2 {
-  margin: 0 0 var(--spacing-md) 0;
-  font-size: 1.5rem;
+  margin: 0;
+  font-size: 1.75rem;
+  color: var(--burgundy);
+  display: flex;
+  align-items: center;
+  gap: 0.1em;
 }
 
-.import-button {
-  width: 100%;
-  font-size: 0.9rem;
+.drop-cap {
+  font-family: var(--font-decorative);
+  font-size: 2.5rem;
+  color: var(--deep-red);
+  text-shadow:
+    1px 1px 0 var(--gold),
+    0 0 6px rgba(212, 175, 55, 0.3);
+  line-height: 1;
+  font-weight: 700;
+  margin-right: -0.05em;
 }
 
 .guest-count {
-  padding: var(--spacing-sm) var(--spacing-lg);
   font-family: var(--font-elegant);
   color: var(--faded-text);
-  font-size: 0.9rem;
-  border-bottom: 1px solid var(--parchment-dark);
+  font-size: 0.85rem;
+  background: rgba(212, 197, 170, 0.3);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 3px;
+  border: 1px solid var(--parchment-dark);
 }
 
 .empty-state {
@@ -219,12 +217,30 @@ function getGuestInitials(firstName: string, lastName: string): string {
   color: var(--burgundy);
   margin: 0 0 var(--spacing-sm) 0;
   padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--parchment-medium);
-  border-left: 3px solid var(--gold);
+  background: linear-gradient(to right, var(--parchment-medium), var(--parchment-light));
+  border-left: 4px solid var(--gold);
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 1px 2px rgba(139, 105, 20, 0.1);
+  position: relative;
+}
+
+.group-title::before {
+  content: '✦';
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gold);
+  font-size: 0.6rem;
 }
 
 .group-title.unassigned {
   border-left-color: var(--faded-text);
+  color: var(--faded-text);
+}
+
+.group-title.unassigned::before {
   color: var(--faded-text);
 }
 

@@ -66,11 +66,21 @@ function handleTableSelect(id: string | null) {
 function handleSeatCountUpdate(id: string, seatCount: number) {
   store.updateTableSeatCount(id, seatCount)
 }
+
+function handleImportCSV(file: File) {
+  store.importGuestsFromCSV(file).catch(error => {
+    console.error('Failed to import CSV:', error)
+    alert('Failed to import CSV file. Please check the format.')
+  })
+}
 </script>
 
 <template>
   <div class="wedding-planner">
-    <PlannerToolbar @add:table="handleAddTable" />
+    <PlannerToolbar
+      @add:table="handleAddTable"
+      @import:csv="handleImportCSV"
+    />
     <div class="main-content">
       <GuestList class="guest-pane" />
       <div class="canvas-container">
