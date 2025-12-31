@@ -6,8 +6,6 @@ import PlannerToolbar from './PlannerToolbar.vue'
 import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
 import GroupMatcher from './GroupMatcher.vue'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 
 const store = useTablePlannerStore()
 const showMatcher = ref(false)
@@ -91,6 +89,12 @@ async function handleDownloadPDF() {
   if (!canvasContainerRef.value) return
 
   try {
+    // Lazy load PDF dependencies only when needed
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf'),
+    ])
+
     // Find the actual canvas element (PlannerCanvas div)
     const canvasElement = canvasContainerRef.value.querySelector('.planner-canvas') as HTMLElement
     if (!canvasElement) return

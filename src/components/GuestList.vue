@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
+import { getGuestInitials } from '../utils/guestHelpers'
 
 const store = useTablePlannerStore()
 
@@ -35,15 +36,6 @@ function getTableLabel(tableId: string): string {
   const tableIndex = store.tables.findIndex(t => t.id === tableId)
   return table ? `Table ${tableIndex + 1}` : 'Unknown'
 }
-
-function getGroupInitials(guestNames: string[]): string {
-  if (guestNames.length === 0) return '??'
-  const firstName = guestNames[0]
-  const nameParts = firstName.trim().split(/\s+/)
-  return nameParts.length >= 2
-    ? `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase()
-    : firstName.substring(0, 2).toUpperCase()
-}
 </script>
 
 <template>
@@ -73,7 +65,7 @@ function getGroupInitials(guestNames: string[]): string {
           >
             <div class="group-badge">
               <div class="group-initials">
-                {{ getGroupInitials(group.guestNames) }}
+                {{ getGuestInitials(group.guestNames[0] || '') }}
               </div>
               <div class="group-size">{{ group.size }}</div>
             </div>
@@ -106,7 +98,7 @@ function getGroupInitials(guestNames: string[]): string {
             >
               <div class="group-badge">
                 <div class="group-initials">
-                  {{ getGroupInitials(group.guestNames) }}
+                  {{ getGuestInitials(group.guestNames[0] || '') }}
                 </div>
                 <div class="group-size">{{ group.size }}</div>
               </div>

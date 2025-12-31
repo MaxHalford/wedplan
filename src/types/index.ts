@@ -16,20 +16,6 @@ export interface GuestGroup {
 }
 
 /**
- * Represents a guest (simplified - just part of a group)
- */
-export interface Guest {
-  /** Guest's name */
-  name: string
-
-  /** ID of the group this guest belongs to */
-  groupId: string
-
-  /** Table assignment (derived from group) */
-  tableId: string | null
-}
-
-/**
  * Seating constraint types
  */
 export enum ConstraintType {
@@ -88,9 +74,6 @@ export interface Table {
 
   /** Creation timestamp */
   createdAt: number
-
-  /** IDs of guests assigned to this table */
-  guestIds: string[]
 }
 
 /**

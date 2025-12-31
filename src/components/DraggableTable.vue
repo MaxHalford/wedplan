@@ -5,6 +5,7 @@ import { useTablePlannerStore } from '../stores/tablePlanner'
 import type { Table } from '../types'
 import { TABLE_DEFAULTS } from '../types'
 import SeatCountEditor from './SeatCountEditor.vue'
+import { getGuestInitials } from '../utils/guestHelpers'
 
 interface Props {
   table: Table
@@ -111,12 +112,6 @@ const guestPositions = computed(() => {
     const x = radius * Math.cos(angle)
     const y = radius * Math.sin(angle)
 
-    // Get initials from name (handle single names and full names)
-    const nameParts = name.trim().split(/\s+/)
-    const initials = nameParts.length >= 2
-      ? `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase()
-      : name.substring(0, 2).toUpperCase()
-
     // Find which group this guest belongs to (for highlighting)
     const group = tableGroups.value.find(g => g.guestNames.includes(name))
 
@@ -125,7 +120,7 @@ const guestPositions = computed(() => {
       groupId: group?.id,
       x,
       y,
-      initials,
+      initials: getGuestInitials(name),
     }
   })
 })
@@ -148,8 +143,11 @@ const guestPositions = computed(() => {
         @update:model-value="handleSeatCountUpdate"
         @blur="isEditing = false"
       />
-      <div v-else class="seat-count">
-        {{ table.seatCount }}
+      <div v-else class="seat-info">
+        <div class="seat-count">{{ table.seatCount }}</div>
+        <div v-if="guestNames.length > 0" class="seat-occupancy">
+          {{ guestNames.length }}/{{ table.seatCount }}
+        </div>
       </div>
     </div>
 
@@ -227,13 +225,30 @@ const guestPositions = computed(() => {
   justify-content: center;
 }
 
+.seat-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
 .seat-count {
   font-family: var(--font-elegant);
   font-size: 2rem;
   font-weight: 600;
   color: var(--burgundy);
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-  pointer-events: none;
+  line-height: 1;
+}
+
+.seat-occupancy {
+  font-family: var(--font-elegant);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ornate-border);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+  line-height: 1;
 }
 
 .guest-initial {

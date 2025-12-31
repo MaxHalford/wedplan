@@ -4,6 +4,7 @@ import { TABLE_DEFAULTS, CANVAS_DEFAULTS, ConstraintType, MatchPreference } from
 import Papa from 'papaparse'
 
 const STORAGE_KEY = 'wedding-planner-state'
+const DEBOUNCE_DELAY = 300 // milliseconds
 
 interface TablePlannerState {
   tables: Table[]
@@ -32,6 +33,27 @@ function saveStateToLocalStorage(state: TablePlannerState): void {
   } catch (error) {
     console.error('Failed to save state to localStorage:', error)
   }
+}
+
+// Debounced save function to prevent excessive localStorage writes
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+function debouncedSaveStateToLocalStorage(state: TablePlannerState): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+  }
+  saveTimeout = setTimeout(() => {
+    saveStateToLocalStorage(state)
+    saveTimeout = null
+  }, DEBOUNCE_DELAY)
+}
+
+// Immediate save function for critical operations
+function immediateSaveStateToLocalStorage(state: TablePlannerState): void {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
+  saveStateToLocalStorage(state)
 }
 
 export const useTablePlannerStore = defineStore('tablePlanner', {
@@ -139,7 +161,6 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         y,
         seatCount: TABLE_DEFAULTS.DEFAULT_SEAT_COUNT,
         createdAt: Date.now(),
-        guestIds: [],
       }
       this.tables.push(newTable)
 
@@ -148,7 +169,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         this.runAssignmentAlgorithm()
       }
 
-      this.persistState()
+      this.persistState(true) // Immediate save for table creation
     },
 
     /**
@@ -204,7 +225,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         if (this.selectedTableId === id) {
           this.selectedTableId = null
         }
-        this.persistState()
+        this.persistState(true) // Immediate save for table deletion
       }
     },
 
@@ -256,7 +277,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
             this.highlightedGroupId = null
 
             // Note: Assignment algorithm will run when user adds tables
-            this.persistState()
+            this.persistState(true) // Immediate save for CSV import
             resolve()
           },
           error: (error) => {
@@ -314,7 +335,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         }
       })
 
-      this.persistState()
+      this.persistState(true) // Immediate save for assignment algorithm
     },
 
     /**
@@ -389,16 +410,23 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
 
     /**
      * Persist current state to localStorage
+     * @param immediate - If true, saves immediately. Otherwise, debounces the save.
      */
-    persistState(): void {
-      saveStateToLocalStorage({
+    persistState(immediate = false): void {
+      const state = {
         tables: this.tables,
         groups: this.groups,
         constraints: this.constraints,
         selectedTableId: null, // Don't persist selection
         highlightedGroupId: null, // Don't persist highlight
         canvasSettings: this.canvasSettings,
-      })
+      }
+
+      if (immediate) {
+        immediateSaveStateToLocalStorage(state)
+      } else {
+        debouncedSaveStateToLocalStorage(state)
+      }
     },
 
     /**
@@ -410,7 +438,7 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       this.constraints = []
       this.selectedTableId = null
       this.highlightedGroupId = null
-      this.persistState()
+      this.persistState(true) // Immediate save for clearing state
     },
   },
 })
