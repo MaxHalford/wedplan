@@ -6,9 +6,12 @@ import PlannerToolbar from './PlannerToolbar.vue'
 import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
 import GroupMatcher from './GroupMatcher.vue'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 
 const store = useTablePlannerStore()
 const showMatcher = ref(false)
+const canvasContainerRef = ref<HTMLElement>()
 
 // Handle keyboard events
 function handleKeyDown(event: KeyboardEvent) {
@@ -83,6 +86,37 @@ function handleStartMatching() {
 function handleCloseMatcher() {
   showMatcher.value = false
 }
+
+async function handleDownloadPDF() {
+  if (!canvasContainerRef.value) return
+
+  try {
+    // Find the actual canvas element (PlannerCanvas div)
+    const canvasElement = canvasContainerRef.value.querySelector('.planner-canvas') as HTMLElement
+    if (!canvasElement) return
+
+    // Capture the canvas as an image
+    const canvas = await html2canvas(canvasElement, {
+      backgroundColor: '#f4e8d0',
+      scale: 2, // Higher quality
+      logging: false,
+    })
+
+    // Create PDF
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF({
+      orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [canvas.width, canvas.height],
+    })
+
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
+    pdf.save('wedding-seating-plan.pdf')
+  } catch (error) {
+    console.error('Failed to generate PDF:', error)
+    alert('Failed to generate PDF. Please try again.')
+  }
+}
 </script>
 
 <template>
@@ -91,10 +125,11 @@ function handleCloseMatcher() {
       @add:table="handleAddTable"
       @import:csv="handleImportCSV"
       @start:matching="handleStartMatching"
+      @download:pdf="handleDownloadPDF"
     />
     <div class="main-content">
       <GuestList class="guest-pane" />
-      <div class="canvas-container">
+      <div ref="canvasContainerRef" class="canvas-container">
         <PlannerCanvas
           :tables="store.tables"
           :selected-table-id="store.selectedTableId"
@@ -141,5 +176,30 @@ function handleCloseMatcher() {
     var(--parchment-light) 0%,
     var(--parchment-dark) 100%
   );
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+
+  .guest-pane {
+    width: 100%;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 4px double var(--ornate-border);
+  }
+
+  .canvas-container {
+    padding: var(--spacing-md);
+    min-height: 60vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .canvas-container {
+    padding: var(--spacing-sm);
+  }
 }
 </style>
