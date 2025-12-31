@@ -38,24 +38,12 @@ class DuplicateIdError(ValidationError):
         super().__init__(f"Duplicate {entity_type} ID: '{entity_id}'")
 
 
-class GroupTooLargeError(ValidationError):
-    """Adjacent group is larger than any table capacity."""
-
-    def __init__(self, group_size: int, max_capacity: int) -> None:
-        self.group_size = group_size
-        self.max_capacity = max_capacity
-        super().__init__(
-            f"Adjacent group of {group_size} members exceeds "
-            f"maximum table capacity of {max_capacity}"
-        )
-
-
 class DuplicateGroupMemberError(ValidationError):
-    """Same guest appears multiple times in an adjacent group."""
+    """Same guest appears multiple times in a group."""
 
     def __init__(self, guest_id: str) -> None:
         self.guest_id = guest_id
-        super().__init__(f"Duplicate guest '{guest_id}' in adjacent group")
+        super().__init__(f"Duplicate guest '{guest_id}' in group")
 
 
 class CapacityError(ValidationError):

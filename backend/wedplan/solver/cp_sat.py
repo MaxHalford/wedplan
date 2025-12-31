@@ -10,7 +10,6 @@ from ortools.sat.python.cp_model import CpModel, CpSolver, IntVar
 
 from wedplan.domain.models import OptimizeRequest, OptimizeResponse
 from wedplan.solver.constraints import (
-    add_adjacent_group_constraints,
     add_assignment_constraints,
     add_same_table_constraints,
     link_y_to_x,
@@ -89,21 +88,15 @@ def solve_seating(request: OptimizeRequest) -> OptimizeResponse:
     # Link y to x (y[g,t] = OR of x[g,t,s])
     link_y_to_x(model, x, y, mapping)
 
-    # Adjacent group constraints (contiguous seating)
-    if mapping.adjacent_groups:
-        add_adjacent_group_constraints(model, x, y, mapping)
-
     # Same-table group constraints
     add_same_table_constraints(model, y, request.same_table, mapping)
 
     # Step 4: Build objective
     build_objective(
         model,
-        x,
         y,
         request.affinities,
         mapping,
-        request.options.adjacency_bonus_weight,
     )
 
     # Step 5: Configure and run solver

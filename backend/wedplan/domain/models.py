@@ -43,21 +43,6 @@ class GuestIn(BaseModel):
     name: StrictStr
 
 
-class AdjacentGroup(BaseModel):
-    """A group of guests that must sit in contiguous seats.
-
-    All members will occupy consecutive seats at the same table.
-    The order within the group is flexible (any permutation allowed).
-
-    Attributes:
-        guest_ids: List of guest IDs that must sit adjacent.
-    """
-
-    model_config = ConfigDict(strict=True)
-
-    guest_ids: list[StrictStr] = Field(min_length=2)
-
-
 class AffinityEdgeIn(BaseModel):
     """Affinity score between two guests.
 
@@ -67,18 +52,17 @@ class AffinityEdgeIn(BaseModel):
     Attributes:
         a: First guest ID.
         b: Second guest ID.
-        score: Affinity score (>= 0). Higher means prefer same table.
-        adjacency_bonus: Optional extra score if guests are adjacent seats.
+        score: Affinity score in {-1, 0, 1}.
+            +1: Soft constraint to be at same table.
+            -1: Soft constraint to NOT be at same table.
+             0: No preference.
     """
 
     model_config = ConfigDict(strict=True)
 
     a: StrictStr
     b: StrictStr
-    score: StrictInt = Field(ge=0, description="Same-table affinity score")
-    adjacency_bonus: StrictInt | None = Field(
-        default=None, ge=0, description="Extra score for adjacent seats"
-    )
+    score: StrictInt = Field(ge=-1, le=1, description="Affinity score: -1, 0, or 1")
 
 
 class SameTableGroup(BaseModel):
@@ -111,7 +95,6 @@ class SolveOptions(BaseModel):
     Attributes:
         time_limit_seconds: Maximum solver runtime.
         num_workers: Number of parallel search workers.
-        adjacency_bonus_weight: Multiplier for adjacency bonus scores.
         allow_empty_seats: Whether seats can remain unassigned.
     """
 
@@ -119,7 +102,6 @@ class SolveOptions(BaseModel):
 
     time_limit_seconds: float = Field(default=5.0, gt=0)
     num_workers: StrictInt = Field(default=1, ge=1)
-    adjacency_bonus_weight: StrictInt = Field(default=1, ge=0)
     allow_empty_seats: bool = True
 
 
@@ -130,7 +112,6 @@ class OptimizeRequest(BaseModel):
         tables: List of tables with capacities.
         guests: List of guests to seat.
         affinities: Sparse list of affinity edges (missing pairs score 0).
-        adjacent_groups: Groups of guests that must sit in contiguous seats.
         same_table: Optional same-table constraints.
         options: Solver options.
     """
@@ -140,7 +121,6 @@ class OptimizeRequest(BaseModel):
     tables: list[TableIn] = Field(min_length=1)
     guests: list[GuestIn] = Field(min_length=1)
     affinities: list[AffinityEdgeIn] = Field(default_factory=list)
-    adjacent_groups: list[AdjacentGroup] = Field(default_factory=list)
     same_table: SameTableConstraintIn | None = None
     options: SolveOptions = Field(default_factory=SolveOptions)
 

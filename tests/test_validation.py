@@ -64,28 +64,35 @@ class TestGuestInValidation:
 class TestAffinityEdgeInValidation:
     """Tests for AffinityEdgeIn model validation."""
 
-    def test_valid_affinity(self) -> None:
-        """Valid affinity edge is accepted."""
-        edge = AffinityEdgeIn(a="g1", b="g2", score=10)
+    def test_valid_positive_affinity(self) -> None:
+        """Positive affinity (+1) is accepted."""
+        edge = AffinityEdgeIn(a="g1", b="g2", score=1)
         assert edge.a == "g1"
         assert edge.b == "g2"
-        assert edge.score == 10
-        assert edge.adjacency_bonus is None
+        assert edge.score == 1
 
-    def test_score_must_be_non_negative(self) -> None:
-        """Score must be >= 0."""
+    def test_valid_negative_affinity(self) -> None:
+        """Negative affinity (-1) is accepted."""
+        edge = AffinityEdgeIn(a="g1", b="g2", score=-1)
+        assert edge.score == -1
+
+    def test_valid_zero_affinity(self) -> None:
+        """Zero affinity (0) is accepted."""
+        edge = AffinityEdgeIn(a="g1", b="g2", score=0)
+        assert edge.score == 0
+
+    def test_score_must_be_in_range(self) -> None:
+        """Score must be in {-1, 0, 1}."""
         with pytest.raises(ValidationError):
-            AffinityEdgeIn(a="g1", b="g2", score=-1)
+            AffinityEdgeIn(a="g1", b="g2", score=2)
+
+        with pytest.raises(ValidationError):
+            AffinityEdgeIn(a="g1", b="g2", score=-2)
 
     def test_score_must_be_int(self) -> None:
         """Score must be integer (strict mode)."""
         with pytest.raises(ValidationError):
-            AffinityEdgeIn(a="g1", b="g2", score=10.5)  # type: ignore[arg-type]
-
-    def test_adjacency_bonus_optional(self) -> None:
-        """Adjacency bonus is optional."""
-        edge = AffinityEdgeIn(a="g1", b="g2", score=10, adjacency_bonus=5)
-        assert edge.adjacency_bonus == 5
+            AffinityEdgeIn(a="g1", b="g2", score=0.5)  # type: ignore[arg-type]
 
 
 class TestSolveOptionsValidation:

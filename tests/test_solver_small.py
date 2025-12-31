@@ -35,7 +35,7 @@ class TestSolverSmallInstances:
         assert alice_seats[0].guest_name == "Alice"
 
     def test_two_guests_with_affinity(self) -> None:
-        """Two guests with high affinity are placed at same table."""
+        """Two guests with positive affinity are placed at same table."""
         request = OptimizeRequest(
             tables=[
                 TableIn(id="t1", capacity=2),
@@ -46,14 +46,14 @@ class TestSolverSmallInstances:
                 GuestIn(id="g2", name="Bob"),
             ],
             affinities=[
-                AffinityEdgeIn(a="g1", b="g2", score=100),
+                AffinityEdgeIn(a="g1", b="g2", score=1),
             ],
         )
 
         response = solve_seating(request)
 
         assert response.status in ("OPTIMAL", "FEASIBLE")
-        assert response.objective_value == 100
+        assert response.objective_value == 1
 
         # Both should be at same table
         alice_table = None
@@ -81,12 +81,12 @@ class TestSolverSmallInstances:
                 GuestIn(id="d", name="D"),
             ],
             affinities=[
-                # A-B like each other (100), C-D like each other (100)
-                # Cross-pairs have lower affinity
-                AffinityEdgeIn(a="a", b="b", score=100),
-                AffinityEdgeIn(a="c", b="d", score=100),
-                AffinityEdgeIn(a="a", b="c", score=10),
-                AffinityEdgeIn(a="b", b="d", score=10),
+                # A-B like each other (+1), C-D like each other (+1)
+                # Cross-pairs: penalize A-C and B-D being together (-1)
+                AffinityEdgeIn(a="a", b="b", score=1),
+                AffinityEdgeIn(a="c", b="d", score=1),
+                AffinityEdgeIn(a="a", b="c", score=-1),
+                AffinityEdgeIn(a="b", b="d", score=-1),
             ],
             options=SolveOptions(allow_empty_seats=False),
         )
@@ -94,9 +94,9 @@ class TestSolverSmallInstances:
         response = solve_seating(request)
 
         assert response.status in ("OPTIMAL", "FEASIBLE")
-        # Optimal: A-B at one table, C-D at other = 200
-        # Suboptimal: A-C at one, B-D at other = 20
-        assert response.objective_value == 200
+        # Optimal: A-B at one table, C-D at other = +1 +1 = 2
+        # (A-C apart = 0, B-D apart = 0)
+        assert response.objective_value == 2
 
 
 class TestSolverAPIEndpoint:
@@ -114,7 +114,7 @@ class TestSolverAPIEndpoint:
                     {"id": "g1", "name": "Alice"},
                     {"id": "g2", "name": "Bob"},
                 ],
-                "affinities": [{"a": "g1", "b": "g2", "score": 50}],
+                "affinities": [{"a": "g1", "b": "g2", "score": 1}],
             },
         )
 
@@ -148,7 +148,7 @@ class TestSolverAPIEndpoint:
             json={
                 "tables": [{"id": "t1", "capacity": 4}],
                 "guests": [{"id": "g1", "name": "Alice"}],
-                "affinities": [{"a": "g1", "b": "nonexistent", "score": 50}],
+                "affinities": [{"a": "g1", "b": "nonexistent", "score": 1}],
             },
         )
 

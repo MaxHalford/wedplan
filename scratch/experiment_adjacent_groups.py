@@ -29,9 +29,7 @@ def are_contiguous(seats: list[int], capacity: int) -> bool:
     sorted_seats = sorted(seats)
 
     # Check normal contiguous (no wrap)
-    normal_contiguous = all(
-        sorted_seats[i + 1] - sorted_seats[i] == 1 for i in range(len(sorted_seats) - 1)
-    )
+    normal_contiguous = all(sorted_seats[i + 1] - sorted_seats[i] == 1 for i in range(len(sorted_seats) - 1))
     if normal_contiguous:
         return True
 
