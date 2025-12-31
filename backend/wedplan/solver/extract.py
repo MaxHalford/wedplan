@@ -1,5 +1,6 @@
 """Solution extraction from CP-SAT solver to response DTO."""
 
+from ortools.sat.cp_model_pb2 import CpSolverStatus
 from ortools.sat.python.cp_model import CpSolver, IntVar
 
 from wedplan.domain.models import (
@@ -12,7 +13,7 @@ from wedplan.domain.models import (
 from wedplan.solver.mapping import ProblemMapping
 
 
-def _status_to_string(status: int) -> SolverStatus:
+def _status_to_string(status: CpSolverStatus) -> SolverStatus:
     """Convert OR-Tools status code to string.
 
     Args:
@@ -21,21 +22,19 @@ def _status_to_string(status: int) -> SolverStatus:
     Returns:
         Status string literal.
     """
-    # OR-Tools status codes
-    # UNKNOWN = 0, MODEL_INVALID = 1, FEASIBLE = 2, INFEASIBLE = 3, OPTIMAL = 4
-    status_map: dict[int, SolverStatus] = {
-        0: "UNKNOWN",
-        1: "MODEL_INVALID",
-        2: "FEASIBLE",
-        3: "INFEASIBLE",
-        4: "OPTIMAL",
+    status_map: dict[CpSolverStatus, SolverStatus] = {
+        CpSolverStatus.UNKNOWN: "UNKNOWN",
+        CpSolverStatus.MODEL_INVALID: "MODEL_INVALID",
+        CpSolverStatus.FEASIBLE: "FEASIBLE",
+        CpSolverStatus.INFEASIBLE: "INFEASIBLE",
+        CpSolverStatus.OPTIMAL: "OPTIMAL",
     }
     return status_map.get(status, "UNKNOWN")
 
 
 def extract_solution(
     solver: CpSolver,
-    status: int,
+    status: CpSolverStatus,
     x: dict[tuple[int, int, int], IntVar],
     mapping: ProblemMapping,
 ) -> OptimizeResponse:
