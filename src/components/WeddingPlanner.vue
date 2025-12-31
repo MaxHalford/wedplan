@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
 import { TABLE_DEFAULTS } from '../types'
 import PlannerToolbar from './PlannerToolbar.vue'
@@ -6,6 +7,34 @@ import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
 
 const store = useTablePlannerStore()
+
+// Handle keyboard events
+function handleKeyDown(event: KeyboardEvent) {
+  // Delete or Backspace key
+  if (event.key === 'Delete' || event.key === 'Backspace') {
+    if (store.selectedTableId) {
+      // Prevent default backspace navigation
+      event.preventDefault()
+      store.removeTable(store.selectedTableId)
+    }
+  }
+
+  // Escape key to deselect
+  if (event.key === 'Escape') {
+    store.selectTable(null)
+    store.highlightGuest(null)
+  }
+}
+
+// Add keyboard listener on mount
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+// Remove keyboard listener on unmount
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 
 function handleAddTable() {
   // Add new table at the center of the canvas
