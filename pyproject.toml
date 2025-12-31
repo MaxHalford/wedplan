@@ -12,7 +12,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["mypy>=1.19.1", "pre-commit>=4.2.0", "pytest>=9.0.2", "ruff>=0.14.10"]
+dev = [
+    "mypy>=1.18.0,<1.19.0",
+    "pre-commit>=4.2.0",
+    "pytest>=9.0.2",
+    "ruff>=0.14.10",
+]
 
 [tool.ruff]
 target-version = "py312"
