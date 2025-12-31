@@ -22,7 +22,7 @@ function handleKeyDown(event: KeyboardEvent) {
   // Escape key to deselect
   if (event.key === 'Escape') {
     store.selectTable(null)
-    store.highlightGuest(null)
+    store.highlightGroup(null)
   }
 }
 

@@ -90,27 +90,42 @@ function handleSeatCountUpdate(newCount: number) {
   isEditing.value = false
 }
 
-// Get guests assigned to this table
-const tableGuests = computed(() => {
-  return store.getGuestsForTable(props.table.id)
+// Get groups assigned to this table
+const tableGroups = computed(() => {
+  return store.getGroupsForTable(props.table.id)
+})
+
+// Get all guest names for this table (flattened from groups)
+const guestNames = computed(() => {
+  return store.getGuestNamesForTable(props.table.id)
 })
 
 // Calculate positions for guest initials around the table
 const guestPositions = computed(() => {
-  const guests = tableGuests.value
-  const count = guests.length
+  const names = guestNames.value
+  const count = names.length
   const radius = TABLE_DEFAULTS.WIDTH / 2 + 20 // Position outside the table
 
-  return guests.map((guest, index) => {
+  return names.map((name, index) => {
     const angle = (index / count) * 2 * Math.PI - Math.PI / 2 // Start from top
     const x = radius * Math.cos(angle)
     const y = radius * Math.sin(angle)
 
+    // Get initials from name (handle single names and full names)
+    const nameParts = name.trim().split(/\s+/)
+    const initials = nameParts.length >= 2
+      ? `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase()
+      : name.substring(0, 2).toUpperCase()
+
+    // Find which group this guest belongs to (for highlighting)
+    const group = tableGroups.value.find(g => g.guestNames.includes(name))
+
     return {
-      guest,
+      name,
+      groupId: group?.id,
       x,
       y,
-      initials: `${guest.firstName.charAt(0)}${guest.lastName.charAt(0)}`.toUpperCase(),
+      initials,
     }
   })
 })
@@ -140,15 +155,15 @@ const guestPositions = computed(() => {
 
     <!-- Guest initials around the table -->
     <div
-      v-for="pos in guestPositions"
-      :key="pos.guest.id"
+      v-for="(pos, index) in guestPositions"
+      :key="`${props.table.id}-guest-${index}`"
       class="guest-initial"
-      :class="{ highlighted: pos.guest.id === store.highlightedGuestId }"
+      :class="{ highlighted: pos.groupId === store.highlightedGroupId }"
       :style="{
         left: `calc(50% + ${pos.x}px)`,
         top: `calc(50% + ${pos.y}px)`,
       }"
-      :title="`${pos.guest.firstName} ${pos.guest.lastName}`"
+      :title="pos.name"
     >
       {{ pos.initials }}
     </div>

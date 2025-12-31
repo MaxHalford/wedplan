@@ -1,15 +1,16 @@
 import { defineStore } from 'pinia'
-import type { Table, Guest, CanvasSettings } from '../types'
-import { TABLE_DEFAULTS, CANVAS_DEFAULTS } from '../types'
+import type { Table, GuestGroup, Constraint, CanvasSettings } from '../types'
+import { TABLE_DEFAULTS, CANVAS_DEFAULTS, ConstraintType } from '../types'
 import Papa from 'papaparse'
 
 const STORAGE_KEY = 'wedding-planner-state'
 
 interface TablePlannerState {
   tables: Table[]
-  guests: Guest[]
+  groups: GuestGroup[]
+  constraints: Constraint[]
   selectedTableId: string | null
-  highlightedGuestId: string | null
+  highlightedGroupId: string | null
   canvasSettings: CanvasSettings
 }
 
@@ -38,9 +39,10 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     const savedState = loadStateFromLocalStorage()
     return {
       tables: savedState.tables || [],
-      guests: savedState.guests || [],
+      groups: savedState.groups || [],
+      constraints: savedState.constraints || [],
       selectedTableId: savedState.selectedTableId || null,
-      highlightedGuestId: savedState.highlightedGuestId || null,
+      highlightedGroupId: savedState.highlightedGroupId || null,
       canvasSettings: savedState.canvasSettings || {
         width: CANVAS_DEFAULTS.WIDTH,
         height: CANVAS_DEFAULTS.HEIGHT,
@@ -50,17 +52,39 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
 
   getters: {
     /**
-     * Get guests assigned to a specific table
+     * Get groups assigned to a specific table
      */
-    getGuestsForTable: (state) => (tableId: string) => {
-      return state.guests.filter(guest => guest.tableId === tableId)
+    getGroupsForTable: (state) => (tableId: string) => {
+      return state.groups.filter(group => group.tableId === tableId)
     },
 
     /**
-     * Get unassigned guests
+     * Get all guest names for a specific table (flattened from groups)
      */
-    unassignedGuests: (state) => {
-      return state.guests.filter(guest => guest.tableId === null)
+    getGuestNamesForTable: (state) => (tableId: string) => {
+      const groups = state.groups.filter(group => group.tableId === tableId)
+      return groups.flatMap(group => group.guestNames)
+    },
+
+    /**
+     * Get unassigned groups
+     */
+    unassignedGroups: (state) => {
+      return state.groups.filter(group => group.tableId === null)
+    },
+
+    /**
+     * Get total number of guests
+     */
+    totalGuestCount: (state) => {
+      return state.groups.reduce((sum, group) => sum + group.size, 0)
+    },
+
+    /**
+     * Get constraints for optimization algorithm
+     */
+    sameTableConstraints: (state) => {
+      return state.constraints.filter(c => c.type === ConstraintType.SAME_TABLE)
     },
   },
 
@@ -79,8 +103,8 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       }
       this.tables.push(newTable)
 
-      // Automatically assign unassigned guests when a new table is added
-      if (this.guests.length > 0) {
+      // Automatically assign unassigned groups when a new table is added
+      if (this.groups.length > 0) {
         this.runAssignmentAlgorithm()
       }
 
@@ -128,11 +152,11 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     removeTable(id: string): void {
       const index = this.tables.findIndex(t => t.id === id)
       if (index !== -1) {
-        // Unassign all guests from this table
+        // Unassign all groups from this table
         const table = this.tables[index]
-        this.guests.forEach(guest => {
-          if (guest.tableId === table.id) {
-            guest.tableId = null
+        this.groups.forEach(group => {
+          if (group.tableId === table.id) {
+            group.tableId = null
           }
         })
 
@@ -145,28 +169,53 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     },
 
     /**
-     * Import guests from CSV
+     * Import guests from CSV (new format: each row is a group)
+     * Columns in each row are guest names that must sit together
      */
     async importGuestsFromCSV(file: File): Promise<void> {
       return new Promise((resolve, reject) => {
         Papa.parse(file, {
-          header: true,
+          header: false, // No headers - just comma-separated names
           complete: (results) => {
-            const newGuests: Guest[] = results.data
-              .filter((row: any) => row.First_Name && row.Last_Name)
-              .map((row: any) => ({
-                id: crypto.randomUUID(),
-                firstName: row.First_Name,
-                lastName: row.Last_Name,
-                tableId: null,
-                email: row.Email,
-                phone: row.Phone,
-                rsvpStatus: row.RSVP_Status,
-                dietaryRestrictions: row.Dietary_Restrictions,
-              }))
+            const newGroups: GuestGroup[] = []
+            const newConstraints: Constraint[] = []
 
-            this.guests = newGuests
-            this.runAssignmentAlgorithm()
+            // Each row is a group of people who must sit together
+            results.data.forEach((row: any) => {
+              if (!Array.isArray(row)) return
+
+              // Filter out empty values
+              const guestNames = row.filter((name: string) => name && name.trim())
+
+              if (guestNames.length > 0) {
+                const groupId = crypto.randomUUID()
+
+                // Create the group
+                newGroups.push({
+                  id: groupId,
+                  guestNames,
+                  size: guestNames.length,
+                  tableId: null,
+                })
+
+                // Create SAME_TABLE constraint for this group
+                newConstraints.push({
+                  id: crypto.randomUUID(),
+                  type: ConstraintType.SAME_TABLE,
+                  groupIds: [groupId],
+                  weight: 1, // High priority - must be satisfied
+                })
+              }
+            })
+
+            // Clear all existing state when importing new CSV
+            this.tables = []
+            this.groups = newGroups
+            this.constraints = newConstraints
+            this.selectedTableId = null
+            this.highlightedGroupId = null
+
+            // Note: Assignment algorithm will run when user adds tables
             this.persistState()
             resolve()
           },
@@ -179,41 +228,49 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
 
     /**
      * Run the guest assignment algorithm
-     * Currently uses random assignment, but can be replaced with optimization algorithm
+     * Currently uses random assignment, but respects group constraints
+     * TODO: Replace with sophisticated optimization algorithm
      */
     runAssignmentAlgorithm(): void {
-      // Get all unassigned guests
-      const unassigned = this.guests.filter(g => g.tableId === null)
+      // Get all unassigned groups
+      const unassigned = this.groups.filter(g => g.tableId === null)
 
       if (unassigned.length === 0 || this.tables.length === 0) {
         return
       }
 
       // TODO: Replace this with sophisticated optimization algorithm
-      // For now: shuffle guests and assign in round-robin fashion
+      // For now: shuffle groups and assign in round-robin fashion
+      // IMPORTANT: Groups must stay together (SAME_TABLE constraint)
       const shuffled = [...unassigned].sort(() => Math.random() - 0.5)
 
       // Assign to tables in round-robin fashion
       let tableIndex = 0
-      shuffled.forEach(guest => {
-        const table = this.tables[tableIndex % this.tables.length]
+      shuffled.forEach(group => {
+        let assigned = false
 
-        // Only assign if table has space
-        const currentGuests = this.guests.filter(g => g.tableId === table.id).length
-        if (currentGuests < table.seatCount) {
-          guest.tableId = table.id
-          tableIndex++
-        } else {
-          // Try next table with space
-          for (let i = 0; i < this.tables.length; i++) {
-            const nextTable = this.tables[(tableIndex + i) % this.tables.length]
-            const nextTableGuests = this.guests.filter(g => g.tableId === nextTable.id).length
-            if (nextTableGuests < nextTable.seatCount) {
-              guest.tableId = nextTable.id
-              tableIndex = (tableIndex + i + 1) % this.tables.length
-              break
-            }
+        // Try to find a table with enough space for the entire group
+        for (let i = 0; i < this.tables.length; i++) {
+          const table = this.tables[(tableIndex + i) % this.tables.length]
+
+          // Count current guests at this table
+          const currentGuestCount = this.groups
+            .filter(g => g.tableId === table.id)
+            .reduce((sum, g) => sum + g.size, 0)
+
+          // Check if group fits at this table
+          if (currentGuestCount + group.size <= table.seatCount) {
+            group.tableId = table.id
+            tableIndex = (tableIndex + i + 1) % this.tables.length
+            assigned = true
+            break
           }
+        }
+
+        // If group couldn't be assigned, leave it unassigned
+        // (This means table is too small for the group)
+        if (!assigned) {
+          console.warn(`Group of ${group.size} (${group.guestNames.join(', ')}) could not be assigned - no table has enough space`)
         }
       })
 
@@ -221,33 +278,36 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     },
 
     /**
-     * Assign a guest to a table
+     * Assign a group to a table
      */
-    assignGuestToTable(guestId: string, tableId: string | null): void {
-      const guest = this.guests.find(g => g.id === guestId)
-      if (guest) {
-        // Check if table has space
+    assignGroupToTable(groupId: string, tableId: string | null): void {
+      const group = this.groups.find(g => g.id === groupId)
+      if (group) {
+        // Check if table has space for the entire group
         if (tableId) {
           const table = this.tables.find(t => t.id === tableId)
           if (table) {
-            const currentGuests = this.guests.filter(g => g.tableId === tableId).length
-            if (currentGuests >= table.seatCount) {
-              console.warn('Table is full')
+            const currentGuestCount = this.groups
+              .filter(g => g.tableId === tableId)
+              .reduce((sum, g) => sum + g.size, 0)
+
+            if (currentGuestCount + group.size > table.seatCount) {
+              console.warn('Table does not have enough space for this group')
               return
             }
           }
         }
 
-        guest.tableId = tableId
+        group.tableId = tableId
         this.persistState()
       }
     },
 
     /**
-     * Highlight a guest
+     * Highlight a group
      */
-    highlightGuest(guestId: string | null): void {
-      this.highlightedGuestId = guestId
+    highlightGroup(groupId: string | null): void {
+      this.highlightedGroupId = groupId
       // Don't persist - it's transient UI state
     },
 
@@ -257,9 +317,10 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     persistState(): void {
       saveStateToLocalStorage({
         tables: this.tables,
-        guests: this.guests,
+        groups: this.groups,
+        constraints: this.constraints,
         selectedTableId: null, // Don't persist selection
-        highlightedGuestId: null, // Don't persist highlight
+        highlightedGroupId: null, // Don't persist highlight
         canvasSettings: this.canvasSettings,
       })
     },
@@ -269,7 +330,10 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
      */
     clearAll(): void {
       this.tables = []
+      this.groups = []
+      this.constraints = []
       this.selectedTableId = null
+      this.highlightedGroupId = null
       this.persistState()
     },
   },

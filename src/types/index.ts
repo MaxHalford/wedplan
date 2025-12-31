@@ -1,30 +1,61 @@
 /**
- * Represents a guest
+ * Represents a guest group (people who must sit together)
  */
-export interface Guest {
-  /** Unique identifier for the guest */
+export interface GuestGroup {
+  /** Unique identifier for the group */
   id: string
 
-  /** Guest's first name */
-  firstName: string
+  /** Names of all guests in this group */
+  guestNames: string[]
 
-  /** Guest's last name */
-  lastName: string
+  /** Number of guests in the group */
+  size: number
 
   /** Table assignment (null if unassigned) */
   tableId: string | null
+}
 
-  /** Email address */
-  email?: string
+/**
+ * Represents a guest (simplified - just part of a group)
+ */
+export interface Guest {
+  /** Guest's name */
+  name: string
 
-  /** Phone number */
-  phone?: string
+  /** ID of the group this guest belongs to */
+  groupId: string
 
-  /** RSVP status */
-  rsvpStatus?: string
+  /** Table assignment (derived from group) */
+  tableId: string | null
+}
 
-  /** Dietary restrictions */
-  dietaryRestrictions?: string
+/**
+ * Seating constraint types
+ */
+export enum ConstraintType {
+  /** Group must sit together at same table */
+  SAME_TABLE = 'SAME_TABLE',
+  /** Groups should sit at different tables */
+  DIFFERENT_TABLES = 'DIFFERENT_TABLES',
+  /** Group should be close to another group */
+  NEARBY = 'NEARBY',
+}
+
+/**
+ * Represents a seating constraint
+ */
+export interface Constraint {
+  /** Unique identifier */
+  id: string
+
+  /** Type of constraint */
+  type: ConstraintType
+
+  /** IDs of groups involved in this constraint */
+  groupIds: string[]
+
+  /** Optional weight/priority (higher = more important) */
+  weight?: number
 }
 
 /**
@@ -74,14 +105,17 @@ export interface PlannerState {
   /** Array of all tables on the canvas */
   tables: Table[]
 
-  /** Array of all guests */
-  guests: Guest[]
+  /** Array of all guest groups */
+  groups: GuestGroup[]
+
+  /** Array of seating constraints */
+  constraints: Constraint[]
 
   /** ID of currently selected table (if any) */
   selectedTableId: string | null
 
-  /** ID of currently highlighted guest (if any) */
-  highlightedGuestId: string | null
+  /** ID of currently highlighted group (if any) */
+  highlightedGroupId: string | null
 
   /** Canvas configuration */
   canvasSettings: CanvasSettings

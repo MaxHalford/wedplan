@@ -4,30 +4,30 @@ import { useTablePlannerStore } from '../stores/tablePlanner'
 
 const store = useTablePlannerStore()
 
-const sortedGuests = computed(() => {
-  return [...store.guests].sort((a, b) => {
-    const nameA = `${a.lastName} ${a.firstName}`.toLowerCase()
-    const nameB = `${b.lastName} ${b.firstName}`.toLowerCase()
+const sortedGroups = computed(() => {
+  return [...store.groups].sort((a, b) => {
+    const nameA = a.guestNames[0]?.toLowerCase() || ''
+    const nameB = b.guestNames[0]?.toLowerCase() || ''
     return nameA.localeCompare(nameB)
   })
 })
 
-const guestsByTable = computed(() => {
-  const grouped: Record<string, typeof sortedGuests.value> = {}
+const groupsByTable = computed(() => {
+  const grouped: Record<string, typeof sortedGroups.value> = {}
 
-  sortedGuests.value.forEach(guest => {
-    const key = guest.tableId || 'unassigned'
+  sortedGroups.value.forEach(group => {
+    const key = group.tableId || 'unassigned'
     if (!grouped[key]) {
       grouped[key] = []
     }
-    grouped[key].push(guest)
+    grouped[key].push(group)
   })
 
   return grouped
 })
 
-function handleGuestClick(guestId: string) {
-  store.highlightGuest(guestId)
+function handleGroupClick(groupId: string) {
+  store.highlightGroup(groupId)
 }
 
 function getTableLabel(tableId: string): string {
@@ -36,8 +36,13 @@ function getTableLabel(tableId: string): string {
   return table ? `Table ${tableIndex + 1}` : 'Unknown'
 }
 
-function getGuestInitials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+function getGroupInitials(guestNames: string[]): string {
+  if (guestNames.length === 0) return '??'
+  const firstName = guestNames[0]
+  const nameParts = firstName.trim().split(/\s+/)
+  return nameParts.length >= 2
+    ? `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase()
+    : firstName.substring(0, 2).toUpperCase()
 }
 </script>
 
@@ -46,71 +51,71 @@ function getGuestInitials(firstName: string, lastName: string): string {
     <div class="guest-list-header">
       <h2><span class="drop-cap">G</span>uests</h2>
       <div class="guest-count">
-        {{ store.guests.length }} total
+        {{ store.totalGuestCount }} total
       </div>
     </div>
 
-    <div v-if="store.guests.length === 0" class="empty-state">
+    <div v-if="store.groups.length === 0" class="empty-state">
       <p>No guests yet</p>
       <p class="hint">Import a CSV file to get started</p>
     </div>
 
     <div v-else class="guest-groups">
-      <!-- Unassigned guests first -->
-      <div v-if="guestsByTable.unassigned" class="guest-group">
+      <!-- Unassigned groups first -->
+      <div v-if="groupsByTable.unassigned" class="guest-group">
         <h3 class="group-title unassigned">
-          Unassigned ({{ guestsByTable.unassigned.length }})
+          Unassigned ({{ groupsByTable.unassigned.reduce((sum, g) => sum + g.size, 0) }})
         </h3>
-        <div class="guest-items">
+        <div class="group-items">
           <div
-            v-for="guest in guestsByTable.unassigned"
-            :key="guest.id"
-            class="guest-item"
-            :class="{ highlighted: guest.id === store.highlightedGuestId }"
-            @click="handleGuestClick(guest.id)"
+            v-for="group in groupsByTable.unassigned"
+            :key="group.id"
+            class="group-item"
+            :class="{ highlighted: group.id === store.highlightedGroupId }"
+            @click="handleGroupClick(group.id)"
           >
-            <div class="guest-initials">
-              {{ getGuestInitials(guest.firstName, guest.lastName) }}
-            </div>
-            <div class="guest-info">
-              <div class="guest-name">
-                {{ guest.firstName }} {{ guest.lastName }}
+            <div class="group-badge">
+              <div class="group-initials">
+                {{ getGroupInitials(group.guestNames) }}
               </div>
-              <div v-if="guest.dietaryRestrictions" class="guest-dietary">
-                {{ guest.dietaryRestrictions }}
+              <div class="group-size">{{ group.size }}</div>
+            </div>
+            <div class="group-info">
+              <div class="group-names">
+                {{ group.guestNames.join(', ') }}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Guests by table -->
+      <!-- Groups by table -->
       <div
-        v-for="(guests, tableId) in guestsByTable"
+        v-for="(groups, tableId) in groupsByTable"
         :key="tableId"
         class="guest-group"
       >
         <template v-if="tableId !== 'unassigned'">
           <h3 class="group-title">
-            {{ getTableLabel(tableId) }} ({{ guests.length }})
+            {{ getTableLabel(tableId) }} ({{ groups.reduce((sum, g) => sum + g.size, 0) }})
           </h3>
-          <div class="guest-items">
+          <div class="group-items">
             <div
-              v-for="guest in guests"
-              :key="guest.id"
-              class="guest-item"
-              :class="{ highlighted: guest.id === store.highlightedGuestId }"
-              @click="handleGuestClick(guest.id)"
+              v-for="group in groups"
+              :key="group.id"
+              class="group-item"
+              :class="{ highlighted: group.id === store.highlightedGroupId }"
+              @click="handleGroupClick(group.id)"
             >
-              <div class="guest-initials">
-                {{ getGuestInitials(guest.firstName, guest.lastName) }}
-              </div>
-              <div class="guest-info">
-                <div class="guest-name">
-                  {{ guest.firstName }} {{ guest.lastName }}
+              <div class="group-badge">
+                <div class="group-initials">
+                  {{ getGroupInitials(group.guestNames) }}
                 </div>
-                <div v-if="guest.dietaryRestrictions" class="guest-dietary">
-                  {{ guest.dietaryRestrictions }}
+                <div class="group-size">{{ group.size }}</div>
+              </div>
+              <div class="group-info">
+                <div class="group-names">
+                  {{ group.guestNames.join(', ') }}
                 </div>
               </div>
             </div>
@@ -244,13 +249,13 @@ function getGuestInitials(firstName: string, lastName: string): string {
   color: var(--faded-text);
 }
 
-.guest-items {
+.group-items {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
 }
 
-.guest-item {
+.group-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -262,21 +267,26 @@ function getGuestInitials(firstName: string, lastName: string): string {
   transition: all var(--transition-fast);
 }
 
-.guest-item:hover {
+.group-item:hover {
   border-color: var(--gold);
   background: var(--parchment-light);
   transform: translateX(4px);
 }
 
-.guest-item.highlighted {
+.group-item.highlighted {
   border-color: var(--gold);
   background: var(--parchment-light);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.3);
 }
 
-.guest-initials {
-  width: 32px;
-  height: 32px;
+.group-badge {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.group-initials {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--burgundy), var(--deep-red));
   color: var(--parchment-light);
@@ -284,33 +294,43 @@ function getGuestInitials(firstName: string, lastName: string): string {
   align-items: center;
   justify-content: center;
   font-family: var(--font-elegant);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  flex-shrink: 0;
 }
 
-.guest-info {
+.group-size {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--ink-black);
+  font-family: var(--font-elegant);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+}
+
+.group-info {
   flex: 1;
   min-width: 0;
 }
 
-.guest-name {
+.group-names {
   font-family: var(--font-body);
   font-weight: 600;
   color: var(--ink-black);
-  font-size: 0.95rem;
-  white-space: nowrap;
+  font-size: 0.9rem;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.guest-dietary {
-  font-size: 0.8rem;
-  color: var(--faded-text);
-  font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 </style>
