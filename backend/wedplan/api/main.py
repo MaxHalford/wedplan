@@ -1,6 +1,7 @@
 """FastAPI application factory."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from wedplan import __version__
 from wedplan.api.routes import health_router, v1_router
@@ -20,6 +21,15 @@ def create_app() -> FastAPI:
         description="Wedding seating optimization service using OR-Tools CP-SAT",
         version=__version__,
         debug=settings.debug,
+    )
+
+    # Add CORS middleware for frontend dev server
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # Include routers

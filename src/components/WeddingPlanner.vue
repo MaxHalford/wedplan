@@ -1,15 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
 import { TABLE_DEFAULTS } from '../types'
+import { useToast } from '../composables/useToast'
 import PlannerToolbar from './PlannerToolbar.vue'
 import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
 import GroupMatcher from './GroupMatcher.vue'
+import ToastNotification from './ToastNotification.vue'
 
 const store = useTablePlannerStore()
+const { showToast } = useToast()
 const showMatcher = ref(false)
 const canvasContainerRef = ref<HTMLElement>()
+
+// Watch for optimization status changes and show toast on infeasible
+watch(
+  () => store.lastOptimizationStatus,
+  (status) => {
+    if (status === 'INFEASIBLE') {
+      showToast(
+        'Cannot find valid seating arrangement. Try relaxing constraints or adding more tables.',
+        'error',
+        6000
+      )
+    }
+  }
+)
 
 // Handle keyboard events
 function handleKeyDown(event: KeyboardEvent) {
@@ -145,6 +162,7 @@ async function handleDownloadPDF() {
       </div>
     </div>
     <GroupMatcher v-if="showMatcher" @close="handleCloseMatcher" />
+    <ToastNotification />
   </div>
 </template>
 

@@ -1,10 +1,17 @@
 import { defineStore } from 'pinia'
 import type { Table, GuestGroup, Constraint, CanvasSettings } from '../types'
 import { TABLE_DEFAULTS, CANVAS_DEFAULTS, ConstraintType, MatchPreference } from '../types'
+import {
+  buildOptimizeRequest,
+  optimizeSeating,
+  type SolverStatus,
+  type TableAssignment,
+} from '../api/optimize'
 import Papa from 'papaparse'
 
 const STORAGE_KEY = 'wedding-planner-state'
 const DEBOUNCE_DELAY = 300 // milliseconds
+const OPTIMIZE_DEBOUNCE_DELAY = 500 // milliseconds
 
 interface TablePlannerState {
   tables: Table[]
@@ -13,6 +20,8 @@ interface TablePlannerState {
   selectedTableId: string | null
   highlightedGroupId: string | null
   canvasSettings: CanvasSettings
+  isOptimizing: boolean
+  lastOptimizationStatus: SolverStatus | null
 }
 
 function loadStateFromLocalStorage(): Partial<TablePlannerState> {
@@ -56,6 +65,9 @@ function immediateSaveStateToLocalStorage(state: TablePlannerState): void {
   saveStateToLocalStorage(state)
 }
 
+// Debounce timeout for optimization API calls
+let optimizeTimeout: ReturnType<typeof setTimeout> | null = null
+
 export const useTablePlannerStore = defineStore('tablePlanner', {
   state: (): TablePlannerState => {
     const savedState = loadStateFromLocalStorage()
@@ -69,6 +81,8 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
         width: CANVAS_DEFAULTS.WIDTH,
         height: CANVAS_DEFAULTS.HEIGHT,
       },
+      isOptimizing: false,
+      lastOptimizationStatus: null,
     }
   },
 
@@ -164,9 +178,9 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       }
       this.tables.push(newTable)
 
-      // Automatically assign unassigned groups when a new table is added
+      // Automatically optimize assignments when a new table is added
       if (this.groups.length > 0) {
-        this.runAssignmentAlgorithm()
+        this.triggerOptimization()
       }
 
       this.persistState(true) // Immediate save for table creation
@@ -196,6 +210,11 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
           Math.min(TABLE_DEFAULTS.MAX_SEAT_COUNT, seatCount)
         )
         this.persistState()
+
+        // Re-optimize when capacity changes
+        if (this.groups.length > 0) {
+          this.triggerOptimization()
+        }
       }
     },
 
@@ -276,9 +295,14 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
             this.selectedTableId = null
             this.highlightedGroupId = null
 
-            // Note: Assignment algorithm will run when user adds tables
+            // Note: Optimization will run when user adds tables
             this.persistState(true) // Immediate save for CSV import
             resolve()
+
+            // If tables exist, trigger optimization
+            if (this.tables.length > 0) {
+              this.triggerOptimization()
+            }
           },
           error: (error) => {
             reject(error)
@@ -288,54 +312,74 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     },
 
     /**
-     * Run the guest assignment algorithm
-     * Currently uses random assignment, but respects group constraints
-     * TODO: Replace with sophisticated optimization algorithm
+     * Trigger optimization with debouncing to avoid spamming the API.
      */
-    runAssignmentAlgorithm(): void {
-      // Get all unassigned groups
-      const unassigned = this.groups.filter(g => g.tableId === null)
+    triggerOptimization(): void {
+      if (optimizeTimeout) {
+        clearTimeout(optimizeTimeout)
+      }
+      optimizeTimeout = setTimeout(() => {
+        this.optimizeAssignments()
+        optimizeTimeout = null
+      }, OPTIMIZE_DEBOUNCE_DELAY)
+    },
 
-      if (unassigned.length === 0 || this.tables.length === 0) {
+    /**
+     * Run the optimization algorithm via backend API.
+     * Replaces the old random assignment with CP-SAT solver optimization.
+     */
+    async optimizeAssignments(): Promise<void> {
+      if (this.tables.length === 0 || this.groups.length === 0) {
         return
       }
 
-      // TODO: Replace this with sophisticated optimization algorithm
-      // For now: shuffle groups and assign in round-robin fashion
-      // IMPORTANT: Groups must stay together (SAME_TABLE constraint)
-      const shuffled = [...unassigned].sort(() => Math.random() - 0.5)
+      this.isOptimizing = true
 
-      // Assign to tables in round-robin fashion
-      let tableIndex = 0
-      shuffled.forEach(group => {
-        let assigned = false
+      try {
+        const request = buildOptimizeRequest(this.tables, this.groups, this.constraints)
+        const response = await optimizeSeating(request)
 
-        // Try to find a table with enough space for the entire group
-        for (let i = 0; i < this.tables.length; i++) {
-          const table = this.tables[(tableIndex + i) % this.tables.length]
+        this.lastOptimizationStatus = response.status
 
-          // Count current guests at this table
-          const currentGuestCount = this.groups
-            .filter(g => g.tableId === table.id)
-            .reduce((sum, g) => sum + g.size, 0)
+        if (response.status === 'INFEASIBLE') {
+          // Toast will be shown by component watching this state
+          return
+        }
 
-          // Check if group fits at this table
-          if (currentGuestCount + group.size <= table.seatCount) {
-            group.tableId = table.id
-            tableIndex = (tableIndex + i + 1) % this.tables.length
-            assigned = true
-            break
+        if (response.status === 'OPTIMAL' || response.status === 'FEASIBLE') {
+          this.applyAssignments(response.tables)
+        }
+      } catch (error) {
+        console.error('Optimization failed:', error)
+        this.lastOptimizationStatus = 'UNKNOWN'
+      } finally {
+        this.isOptimizing = false
+        this.persistState(true)
+      }
+    },
+
+    /**
+     * Apply solver assignments to groups.
+     * Maps guest IDs back to groups and updates their tableId.
+     */
+    applyAssignments(tableAssignments: TableAssignment[]): void {
+      // Build map: guestId -> tableId
+      const guestToTable = new Map<string, string>()
+      for (const ta of tableAssignments) {
+        for (const seat of ta.seats) {
+          if (seat.guest_id) {
+            guestToTable.set(seat.guest_id, ta.table_id)
           }
         }
+      }
 
-        // If group couldn't be assigned, leave it unassigned
-        // (This means table is too small for the group)
-        if (!assigned) {
-          console.warn(`Group of ${group.size} (${group.guestNames.join(', ')}) could not be assigned - no table has enough space`)
-        }
-      })
-
-      this.persistState(true) // Immediate save for assignment algorithm
+      // Update each group's tableId based on first guest
+      for (const group of this.groups) {
+        // Guest ID format: `${group.id}:${index}`
+        const firstGuestId = `${group.id}:0`
+        const tableId = guestToTable.get(firstGuestId)
+        group.tableId = tableId ?? null
+      }
     },
 
     /**
@@ -406,6 +450,11 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
       })
 
       this.persistState()
+
+      // Re-optimize when constraints change
+      if (this.tables.length > 0) {
+        this.triggerOptimization()
+      }
     },
 
     /**
