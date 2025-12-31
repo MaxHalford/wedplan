@@ -8,10 +8,11 @@ dependencies = [
     "fastapi[standard]>=0.128.0",
     "ortools>=9.14.6206",
     "pydantic>=2.12.5",
+    "pydantic-settings>=2.0.0",
 ]
 
 [dependency-groups]
-dev = ["mypy>=1.19.1", "pytest>=9.0.2", "ruff>=0.14.10"]
+dev = ["mypy>=1.19.1", "pre-commit>=4.2.0", "pytest>=9.0.2", "ruff>=0.14.10"]
 
 [tool.ruff]
 target-version = "py312"
@@ -38,6 +39,7 @@ pythonpath = ["backend"]
 strict = true
 plugins = ["pydantic.mypy"]
 python_version = "3.12"
+mypy_path = "backend"
 
 [[tool.mypy.overrides]]
 module = "ortools.*"
