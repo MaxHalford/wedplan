@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+
+# Node/Bun
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+.uv/
+*.egg-info/
+.eggs/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Build artifacts (frontend dist is built in container)
+dist/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Documentation and misc
+*.md
+!README.md
+*.csv
+*.png
+*.jpg
+*.jpeg
+INTERFACE.png
+
+# Lock files that aren't needed in Python stage
+# (bun.lock is needed for frontend build stage)

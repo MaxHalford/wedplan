@@ -80,7 +80,9 @@ export interface OptimizeResponse {
 // API Configuration
 // =============================================================================
 
-const API_BASE = 'http://localhost:8001'
+// In production (Railway), use relative paths since frontend and backend are same origin.
+// In development, set VITE_API_BASE to point to the local backend server.
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // =============================================================================
 // Data Mapping Functions
