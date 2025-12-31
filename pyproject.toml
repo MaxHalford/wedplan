@@ -50,6 +50,12 @@ mypy_path = "backend"
 module = "ortools.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "wedplan.solver.extract"
+# Protobuf enums use ValueType internally, causing dict-item errors.
+# See: https://github.com/protocolbuffers/protobuf/issues/10152
+disable_error_code = ["dict-item"]
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
