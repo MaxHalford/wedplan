@@ -21,6 +21,14 @@ class GuestNotFoundError(ValidationError):
         super().__init__(f"Guest '{guest_id}' not found in {context}")
 
 
+class GroupNotFoundError(ValidationError):
+    """Referenced group ID does not exist."""
+
+    def __init__(self, group_id: str, context: str) -> None:
+        self.group_id = group_id
+        super().__init__(f"Group '{group_id}' not found in {context}")
+
+
 class TableNotFoundError(ValidationError):
     """Referenced table ID does not exist."""
 

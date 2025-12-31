@@ -2,13 +2,11 @@
 
 Implements:
 - Basic assignment constraints (each guest to exactly one seat)
-- Same-table group constraints
+- Same-table group constraints (guests in a group must sit together)
 """
 
 from ortools.sat.python.cp_model import CpModel, IntVar
 
-from wedplan.domain.errors import GuestNotFoundError
-from wedplan.domain.models import SameTableConstraintIn
 from wedplan.solver.mapping import ProblemMapping
 
 
@@ -40,7 +38,6 @@ def add_assignment_constraints(
 def add_same_table_constraints(
     model: CpModel,
     y: dict[tuple[int, int], IntVar],
-    same_table: SameTableConstraintIn | None,
     mapping: ProblemMapping,
 ) -> None:
     """Add same-table group constraints.
@@ -51,22 +48,11 @@ def add_same_table_constraints(
     Args:
         model: CP-SAT model.
         y: Table assignment variables y[g, t].
-        same_table: Same-table constraint specification.
-        mapping: Problem mapping.
-
-    Raises:
-        GuestNotFoundError: If referenced guest ID not found.
+        mapping: Problem mapping (groups already validated during mapping creation).
     """
-    if same_table is None:
-        return
-
-    for group in same_table.groups:
-        # Validate all guest IDs exist
-        indices: list[int] = []
-        for guest_id in group.guest_ids:
-            if guest_id not in mapping.guest_id_to_index:
-                raise GuestNotFoundError(guest_id, "same_table constraint")
-            indices.append(mapping.guest_id_to_index[guest_id])
+    for group in mapping.groups:
+        # Group guest indices are already validated during mapping creation
+        indices = group.guest_indices
 
         # Enforce pairwise equality for table assignment
         # If i and j must be at same table, then y[i,t] == y[j,t] for all t

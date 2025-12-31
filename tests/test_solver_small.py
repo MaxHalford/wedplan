@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from wedplan.api.main import app
 from wedplan.domain.models import (
     AffinityEdgeIn,
+    GroupIn,
     GuestIn,
     OptimizeRequest,
     SolveOptions,
@@ -34,8 +35,8 @@ class TestSolverSmallInstances:
         assert len(alice_seats) == 1
         assert alice_seats[0].guest_name == "Alice"
 
-    def test_two_guests_with_affinity(self) -> None:
-        """Two guests with positive affinity are placed at same table."""
+    def test_two_groups_with_affinity(self) -> None:
+        """Two groups with positive affinity are placed at same table."""
         request = OptimizeRequest(
             tables=[
                 TableIn(id="t1", capacity=2),
@@ -45,8 +46,12 @@ class TestSolverSmallInstances:
                 GuestIn(id="g1", name="Alice"),
                 GuestIn(id="g2", name="Bob"),
             ],
+            groups=[
+                GroupIn(id="group_alice", guest_ids=["g1"]),
+                GroupIn(id="group_bob", guest_ids=["g2"]),
+            ],
             affinities=[
-                AffinityEdgeIn(a="g1", b="g2", score=1),
+                AffinityEdgeIn(a="group_alice", b="group_bob", score=1),
             ],
         )
 
@@ -80,13 +85,14 @@ class TestSolverSmallInstances:
                 GuestIn(id="c", name="C"),
                 GuestIn(id="d", name="D"),
             ],
+            groups=[
+                # A-B in one group, C-D in another
+                GroupIn(id="group_ab", guest_ids=["a", "b"]),
+                GroupIn(id="group_cd", guest_ids=["c", "d"]),
+            ],
             affinities=[
-                # A-B like each other (+1), C-D like each other (+1)
-                # Cross-pairs: penalize A-C and B-D being together (-1)
-                AffinityEdgeIn(a="a", b="b", score=1),
-                AffinityEdgeIn(a="c", b="d", score=1),
-                AffinityEdgeIn(a="a", b="c", score=-1),
-                AffinityEdgeIn(a="b", b="d", score=-1),
+                # Groups should be at different tables
+                AffinityEdgeIn(a="group_ab", b="group_cd", score=-1),
             ],
             options=SolveOptions(allow_empty_seats=False),
         )
@@ -94,9 +100,8 @@ class TestSolverSmallInstances:
         response = solve_seating(request)
 
         assert response.status in ("OPTIMAL", "FEASIBLE")
-        # Optimal: A-B at one table, C-D at other = +1 +1 = 2
-        # (A-C apart = 0, B-D apart = 0)
-        assert response.objective_value == 2
+        # Optimal: group_ab at one table, group_cd at other (avoiding -1 penalty)
+        assert response.objective_value == 0
 
 
 class TestSolverAPIEndpoint:
@@ -114,7 +119,11 @@ class TestSolverAPIEndpoint:
                     {"id": "g1", "name": "Alice"},
                     {"id": "g2", "name": "Bob"},
                 ],
-                "affinities": [{"a": "g1", "b": "g2", "score": 1}],
+                "groups": [
+                    {"id": "group_alice", "guest_ids": ["g1"]},
+                    {"id": "group_bob", "guest_ids": ["g2"]},
+                ],
+                "affinities": [{"a": "group_alice", "b": "group_bob", "score": 1}],
             },
         )
 
@@ -139,8 +148,8 @@ class TestSolverAPIEndpoint:
 
         assert response.status_code == 422
 
-    def test_optimize_endpoint_invalid_affinity_reference(self) -> None:
-        """POST /v1/optimize returns 422 for invalid guest reference."""
+    def test_optimize_endpoint_invalid_group_reference(self) -> None:
+        """POST /v1/optimize returns 422 for invalid group reference."""
         client = TestClient(app)
 
         response = client.post(
@@ -148,9 +157,10 @@ class TestSolverAPIEndpoint:
             json={
                 "tables": [{"id": "t1", "capacity": 4}],
                 "guests": [{"id": "g1", "name": "Alice"}],
-                "affinities": [{"a": "g1", "b": "nonexistent", "score": 1}],
+                "groups": [{"id": "group_alice", "guest_ids": ["g1"]}],
+                "affinities": [{"a": "group_alice", "b": "nonexistent_group", "score": 1}],
             },
         )
 
         assert response.status_code == 422
-        assert "nonexistent" in response.json()["detail"]
+        assert "nonexistent_group" in response.json()["detail"]

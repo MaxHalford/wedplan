@@ -88,8 +88,8 @@ def solve_seating(request: OptimizeRequest) -> OptimizeResponse:
     # Link y to x (y[g,t] = OR of x[g,t,s])
     link_y_to_x(model, x, y, mapping)
 
-    # Same-table group constraints
-    add_same_table_constraints(model, y, request.same_table, mapping)
+    # Same-table group constraints (all guests in a group at same table)
+    add_same_table_constraints(model, y, mapping)
 
     # Step 4: Build objective
     build_objective(

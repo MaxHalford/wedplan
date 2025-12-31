@@ -43,18 +43,32 @@ class GuestIn(BaseModel):
     name: StrictStr
 
 
-class AffinityEdgeIn(BaseModel):
-    """Affinity score between two guests.
-
-    Affinity edges are unordered pairs. The solver maximizes total
-    affinity for guests seated at the same table.
+class GroupIn(BaseModel):
+    """A group of guests that must sit together at the same table.
 
     Attributes:
-        a: First guest ID.
-        b: Second guest ID.
+        id: Unique identifier for the group.
+        guest_ids: List of guest IDs that must share a table.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    id: StrictStr
+    guest_ids: list[StrictStr] = Field(min_length=1)
+
+
+class AffinityEdgeIn(BaseModel):
+    """Affinity score between two groups.
+
+    Affinity edges are unordered pairs. The solver maximizes total
+    affinity for groups seated at the same table.
+
+    Attributes:
+        a: First group ID.
+        b: Second group ID.
         score: Affinity score in {-1, 0, 1}.
-            +1: Soft constraint to be at same table.
-            -1: Soft constraint to NOT be at same table.
+            +1: Soft preference to be at same table.
+            -1: Soft preference to NOT be at same table.
              0: No preference.
     """
 
@@ -63,30 +77,6 @@ class AffinityEdgeIn(BaseModel):
     a: StrictStr
     b: StrictStr
     score: StrictInt = Field(ge=-1, le=1, description="Affinity score: -1, 0, or 1")
-
-
-class SameTableGroup(BaseModel):
-    """A group of guests that must be seated at the same table.
-
-    Attributes:
-        guest_ids: List of guest IDs that must share a table.
-    """
-
-    model_config = ConfigDict(strict=True)
-
-    guest_ids: list[StrictStr] = Field(min_length=2)
-
-
-class SameTableConstraintIn(BaseModel):
-    """Same-table constraints specification.
-
-    Attributes:
-        groups: List of guest groups that must share tables.
-    """
-
-    model_config = ConfigDict(strict=True)
-
-    groups: list[SameTableGroup] = Field(default_factory=list)
 
 
 class SolveOptions(BaseModel):
@@ -111,8 +101,8 @@ class OptimizeRequest(BaseModel):
     Attributes:
         tables: List of tables with capacities.
         guests: List of guests to seat.
-        affinities: Sparse list of affinity edges (missing pairs score 0).
-        same_table: Optional same-table constraints.
+        groups: List of guest groups (guests in a group must sit together).
+        affinities: Sparse list of affinity edges between groups (missing pairs score 0).
         options: Solver options.
     """
 
@@ -120,8 +110,8 @@ class OptimizeRequest(BaseModel):
 
     tables: list[TableIn] = Field(min_length=1)
     guests: list[GuestIn] = Field(min_length=1)
+    groups: list[GroupIn] = Field(default_factory=list)
     affinities: list[AffinityEdgeIn] = Field(default_factory=list)
-    same_table: SameTableConstraintIn | None = None
     options: SolveOptions = Field(default_factory=SolveOptions)
 
 
