@@ -16,7 +16,7 @@ def _status_to_string(status: int) -> SolverStatus:
     """Convert OR-Tools status code to string.
 
     Args:
-        status: OR-Tools CpSolverStatus enum value.
+        status: OR-Tools CpSolverStatus enum value (as int).
 
     Returns:
         Status string literal.
