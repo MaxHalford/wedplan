@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useOnboarding } from '../composables/useOnboarding'
+import { useTablePlannerStore } from '../stores/tablePlanner'
 
 const emit = defineEmits<{
   'add:table': []
@@ -8,7 +10,31 @@ const emit = defineEmits<{
   'download:pdf': []
 }>()
 
+const store = useTablePlannerStore()
+const { isActive, currentStep, showCSVHelper, restart, OnboardingStep } = useOnboarding()
+const showRestartConfirm = ref(false)
+
 const fileInput = ref<HTMLInputElement>()
+
+// Compute button classes based on onboarding state
+const importButtonClasses = computed(() => ({
+  'onboarding-spotlight': isActive.value && !showCSVHelper.value && currentStep.value === OnboardingStep.IMPORT_GUESTS,
+  'onboarding-dimmed': isActive.value && !showCSVHelper.value && currentStep.value !== OnboardingStep.IMPORT_GUESTS,
+}))
+
+const addTableButtonClasses = computed(() => ({
+  'onboarding-spotlight': isActive.value && !showCSVHelper.value && currentStep.value === OnboardingStep.ADD_TABLES,
+  'onboarding-dimmed': isActive.value && !showCSVHelper.value && currentStep.value !== OnboardingStep.ADD_TABLES,
+}))
+
+const matchButtonClasses = computed(() => ({
+  'onboarding-spotlight': isActive.value && !showCSVHelper.value && currentStep.value === OnboardingStep.SET_PREFERENCES,
+  'onboarding-dimmed': isActive.value && !showCSVHelper.value && currentStep.value !== OnboardingStep.SET_PREFERENCES,
+}))
+
+const downloadButtonClasses = computed(() => ({
+  'onboarding-dimmed': isActive.value && !showCSVHelper.value && currentStep.value !== OnboardingStep.COMPLETE,
+}))
 
 function handleAddTable() {
   emit('add:table')
@@ -33,6 +59,20 @@ function handleStartMatching() {
 function handleDownloadPDF() {
   emit('download:pdf')
 }
+
+function handleRestartClick() {
+  showRestartConfirm.value = true
+}
+
+function handleRestartConfirm() {
+  store.clearAll()
+  restart()
+  showRestartConfirm.value = false
+}
+
+function handleRestartCancel() {
+  showRestartConfirm.value = false
+}
 </script>
 
 <template>
@@ -43,21 +83,44 @@ function handleDownloadPDF() {
       <span class="drop-cap">P</span>lanner
     </h1>
     <div class="toolbar-actions">
-      <button @click="triggerFileInput" class="toolbar-button import-button">
+      <button
+        @click="triggerFileInput"
+        class="toolbar-button import-button"
+        :class="importButtonClasses"
+      >
         <span class="button-icon">📜</span>
         Import CSV
       </button>
-      <button @click="handleStartMatching" class="toolbar-button match-button">
+      <button
+        @click="handleStartMatching"
+        class="toolbar-button match-button"
+        :class="matchButtonClasses"
+      >
         <span class="button-icon">💕</span>
         Match Groups
       </button>
-      <button @click="handleAddTable" class="toolbar-button add-table-button">
+      <button
+        @click="handleAddTable"
+        class="toolbar-button add-table-button"
+        :class="addTableButtonClasses"
+      >
         <span class="button-icon">+</span>
         Add Table
       </button>
-      <button @click="handleDownloadPDF" class="toolbar-button download-button">
+      <button
+        @click="handleDownloadPDF"
+        class="toolbar-button download-button"
+        :class="downloadButtonClasses"
+      >
         <span class="button-icon">📄</span>
         Download PDF
+      </button>
+      <button
+        @click="handleRestartClick"
+        class="toolbar-button reset-button"
+      >
+        <span class="button-icon">↺</span>
+        Reset Session
       </button>
       <input
         ref="fileInput"
@@ -67,6 +130,24 @@ function handleDownloadPDF() {
         style="display: none"
       />
     </div>
+
+    <!-- Reset Confirmation Dialog -->
+    <Teleport to="body">
+      <div v-if="showRestartConfirm" class="confirm-overlay" @click.self="handleRestartCancel">
+        <div class="confirm-dialog">
+          <h3>Reset Session?</h3>
+          <p>This will clear all guests, tables, and preferences. This action cannot be undone.</p>
+          <div class="confirm-actions">
+            <button @click="handleRestartCancel" class="confirm-btn confirm-btn-cancel">
+              Cancel
+            </button>
+            <button @click="handleRestartConfirm" class="confirm-btn confirm-btn-confirm">
+              Reset Everything
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -226,5 +307,101 @@ function handleDownloadPDF() {
   .toolbar-button {
     width: 100%;
   }
+}
+
+/* Reset button styling */
+.reset-button {
+  border-color: var(--faded-text);
+  color: var(--faded-text);
+}
+
+.reset-button:hover {
+  border-color: var(--deep-red);
+  color: var(--deep-red);
+}
+
+/* Confirmation dialog */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 24, 16, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn var(--transition-medium) ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirm-dialog {
+  background: var(--parchment-light);
+  border: 3px solid var(--ornate-border);
+  border-radius: 8px;
+  padding: var(--spacing-xl);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px var(--shadow-brown);
+  animation: slideUp var(--transition-medium) ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.confirm-dialog h3 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-family: var(--font-elegant);
+  font-size: 1.25rem;
+  color: var(--burgundy);
+}
+
+.confirm-dialog p {
+  margin: 0 0 var(--spacing-lg) 0;
+  font-family: var(--font-body);
+  color: var(--brown-text);
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: 0.95rem;
+}
+
+.confirm-btn-cancel {
+  background: transparent;
+  border-color: var(--ornate-border);
+  color: var(--brown-text);
+}
+
+.confirm-btn-cancel:hover {
+  background: var(--parchment-medium);
+}
+
+.confirm-btn-confirm {
+  background: linear-gradient(to bottom, var(--deep-red), var(--burgundy));
+  border-color: var(--deep-red);
+  color: var(--parchment-light);
+}
+
+.confirm-btn-confirm:hover {
+  background: linear-gradient(to bottom, var(--burgundy), var(--deep-red));
+  box-shadow: 0 4px 12px rgba(139, 26, 26, 0.4);
 }
 </style>

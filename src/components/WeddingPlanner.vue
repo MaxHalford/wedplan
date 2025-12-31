@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
+import { useOnboarding } from '../composables/useOnboarding'
 import { TABLE_DEFAULTS } from '../types'
 import { useToast } from '../composables/useToast'
 import PlannerToolbar from './PlannerToolbar.vue'
@@ -8,9 +9,11 @@ import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
 import GroupMatcher from './GroupMatcher.vue'
 import ToastNotification from './ToastNotification.vue'
+import OnboardingOverlay from './onboarding/OnboardingOverlay.vue'
 
 const store = useTablePlannerStore()
 const { showToast } = useToast()
+const { completeOnboarding, isActive } = useOnboarding()
 const showMatcher = ref(false)
 const canvasContainerRef = ref<HTMLElement>()
 
@@ -95,6 +98,10 @@ function handleImportCSV(file: File) {
 }
 
 function handleStartMatching() {
+  // Complete onboarding when user opens the matcher
+  if (isActive.value) {
+    completeOnboarding()
+  }
   showMatcher.value = true
 }
 
@@ -163,6 +170,7 @@ async function handleDownloadPDF() {
     </div>
     <GroupMatcher v-if="showMatcher" @close="handleCloseMatcher" />
     <ToastNotification />
+    <OnboardingOverlay />
   </div>
 </template>
 

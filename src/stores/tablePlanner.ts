@@ -117,6 +117,31 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     },
 
     /**
+     * Get suggested number of tables based on guest count
+     */
+    suggestedTableCount: (state) => {
+      const totalGuests = state.groups.reduce((sum, group) => sum + group.size, 0)
+      const avgSeatsPerTable = TABLE_DEFAULTS.DEFAULT_SEAT_COUNT
+      return Math.max(1, Math.ceil(totalGuests / avgSeatsPerTable))
+    },
+
+    /**
+     * Get total available seats across all tables
+     */
+    totalSeatCount: (state) => {
+      return state.tables.reduce((sum, table) => sum + table.seatCount, 0)
+    },
+
+    /**
+     * Check if we have enough seats for all guests
+     */
+    hasEnoughSeats: (state) => {
+      const totalGuests = state.groups.reduce((sum, group) => sum + group.size, 0)
+      const totalSeats = state.tables.reduce((sum, table) => sum + table.seatCount, 0)
+      return totalSeats >= totalGuests
+    },
+
+    /**
      * Get constraints for optimization algorithm
      */
     sameTableConstraints: (state) => {
