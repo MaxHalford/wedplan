@@ -1,0 +1,128 @@
+/* Medieval Theme - Global Styles */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-black);
+  background: linear-gradient(135deg, var(--parchment-light) 0%, var(--parchment-medium) 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-decorative);
+  color: var(--burgundy);
+  margin: 0;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+button {
+  font-family: var(--font-elegant);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(to bottom, var(--parchment-light), var(--parchment-medium));
+  color: var(--brown-text);
+  border: 2px solid var(--ornate-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-medium);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 4px var(--shadow-brown);
+  position: relative;
+}
+
+button:hover {
+  background: linear-gradient(to bottom, var(--parchment-medium), var(--parchment-light));
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 8px var(--shadow-brown);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 2px var(--shadow-brown),
+    0 1px 2px var(--shadow-brown);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+input[type="number"] {
+  font-family: var(--font-elegant);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--burgundy);
+  background: var(--parchment-light);
+  border: 2px solid var(--ornate-border);
+  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-align: center;
+  width: 60px;
+}
+
+input[type="number"]:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Selection colors */
+::selection {
+  background: var(--gold);
+  color: var(--ink-black);
+}
+
+::-moz-selection {
+  background: var(--gold);
+  color: var(--ink-black);
+}

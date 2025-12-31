@@ -1,0 +1,5 @@
+- This is a wedding plan app
+- The first page is a canvas, that contains tables
+- Tables are ovals that can be dragged around the canvas
+- The user can create a another table by clicking a button
+- Each table has a number in its center. This number represents the number of seats at that table. It can be modified by clicking on the table.
