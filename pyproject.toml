@@ -1,0 +1,49 @@
+[project]
+name = "wedplan"
+version = "0.1.0"
+description = "Wedding seating optimization service using OR-Tools CP-SAT"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.128.0",
+    "ortools>=9.14.6206",
+    "pydantic>=2.12.5",
+]
+
+[dependency-groups]
+dev = ["mypy>=1.19.1", "pytest>=9.0.2", "ruff>=0.14.10"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["backend", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = "ortools.*"
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
