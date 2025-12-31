@@ -54,12 +54,6 @@ class TestGuestInValidation:
         guest = GuestIn(id="g1", name="Alice")
         assert guest.id == "g1"
         assert guest.name == "Alice"
-        assert guest.partner_id is None
-
-    def test_guest_with_partner(self) -> None:
-        """Guest with partner reference is valid."""
-        guest = GuestIn(id="g1", name="Alice", partner_id="g2")
-        assert guest.partner_id == "g2"
 
     def test_name_must_be_string(self) -> None:
         """Name must be string (strict mode)."""

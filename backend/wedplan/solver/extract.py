@@ -22,7 +22,9 @@ def _status_to_string(status: CpSolverStatus) -> SolverStatus:
     Returns:
         Status string literal.
     """
-    status_map: dict[CpSolverStatus, SolverStatus] = {
+    # Protobuf enum values are typed as ValueType internally, not CpSolverStatus.
+    # See: https://github.com/protocolbuffers/protobuf/issues/10152
+    status_map: dict[CpSolverStatus, SolverStatus] = {  # type: ignore[dict-item,unused-ignore]
         CpSolverStatus.UNKNOWN: "UNKNOWN",
         CpSolverStatus.MODEL_INVALID: "MODEL_INVALID",
         CpSolverStatus.FEASIBLE: "FEASIBLE",

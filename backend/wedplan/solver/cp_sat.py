@@ -10,8 +10,8 @@ from ortools.sat.python.cp_model import CpModel, CpSolver, IntVar
 
 from wedplan.domain.models import OptimizeRequest, OptimizeResponse
 from wedplan.solver.constraints import (
+    add_adjacent_group_constraints,
     add_assignment_constraints,
-    add_partner_adjacency_constraints,
     add_same_table_constraints,
     link_y_to_x,
 )
@@ -71,8 +71,8 @@ def solve_seating(request: OptimizeRequest) -> OptimizeResponse:
     Raises:
         GuestNotFoundError: If referenced guest ID not found.
         DuplicateIdError: If duplicate table or guest ID.
-        PartnerCycleError: If self-partnering detected.
-        AsymmetricPartnerError: If partner relationship not symmetric.
+        DuplicateGroupMemberError: If guest appears twice in same group.
+        GroupTooLargeError: If adjacent group exceeds max table capacity.
     """
     # Step 1: Create mapping (validates IDs and relationships)
     mapping = create_mapping(request)
@@ -89,9 +89,9 @@ def solve_seating(request: OptimizeRequest) -> OptimizeResponse:
     # Link y to x (y[g,t] = OR of x[g,t,s])
     link_y_to_x(model, x, y, mapping)
 
-    # Partner adjacency constraints
-    if mapping.partner_pairs:
-        add_partner_adjacency_constraints(model, x, mapping)
+    # Adjacent group constraints (contiguous seating)
+    if mapping.adjacent_groups:
+        add_adjacent_group_constraints(model, x, y, mapping)
 
     # Same-table group constraints
     add_same_table_constraints(model, y, request.same_table, mapping)
