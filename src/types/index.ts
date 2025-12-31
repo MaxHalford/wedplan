@@ -35,10 +35,19 @@ export interface Guest {
 export enum ConstraintType {
   /** Group must sit together at same table */
   SAME_TABLE = 'SAME_TABLE',
-  /** Groups should sit at different tables */
+  /** Groups should sit at different tables (dislike) */
   DIFFERENT_TABLES = 'DIFFERENT_TABLES',
-  /** Group should be close to another group */
+  /** Groups should be close to each other (like) */
   NEARBY = 'NEARBY',
+}
+
+/**
+ * User preference for group matching
+ */
+export enum MatchPreference {
+  LIKE = 'LIKE',
+  NEUTRAL = 'NEUTRAL',
+  DISLIKE = 'DISLIKE',
 }
 
 /**

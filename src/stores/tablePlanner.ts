@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { Table, GuestGroup, Constraint, CanvasSettings } from '../types'
-import { TABLE_DEFAULTS, CANVAS_DEFAULTS, ConstraintType } from '../types'
+import { TABLE_DEFAULTS, CANVAS_DEFAULTS, ConstraintType, MatchPreference } from '../types'
 import Papa from 'papaparse'
 
 const STORAGE_KEY = 'wedding-planner-state'
@@ -85,6 +85,46 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
      */
     sameTableConstraints: (state) => {
       return state.constraints.filter(c => c.type === ConstraintType.SAME_TABLE)
+    },
+
+    /**
+     * Check if two groups have any constraint between them
+     */
+    hasConstraintBetween: (state) => (groupId1: string, groupId2: string) => {
+      return state.constraints.some(c => {
+        const hasGroup1 = c.groupIds.includes(groupId1)
+        const hasGroup2 = c.groupIds.includes(groupId2)
+        return hasGroup1 && hasGroup2 && c.type !== ConstraintType.SAME_TABLE
+      })
+    },
+
+    /**
+     * Get pairs of groups that don't have constraints yet
+     * Excludes single-group constraints (SAME_TABLE)
+     */
+    unconstrainedPairs: (state) => {
+      const pairs: Array<[GuestGroup, GuestGroup]> = []
+
+      for (let i = 0; i < state.groups.length; i++) {
+        for (let j = i + 1; j < state.groups.length; j++) {
+          const group1 = state.groups[i]
+          const group2 = state.groups[j]
+
+          // Check if these groups already have a constraint
+          const hasConstraint = state.constraints.some(c => {
+            if (c.type === ConstraintType.SAME_TABLE) return false // Skip SAME_TABLE
+            const hasGroup1 = c.groupIds.includes(group1.id)
+            const hasGroup2 = c.groupIds.includes(group2.id)
+            return hasGroup1 && hasGroup2
+          })
+
+          if (!hasConstraint) {
+            pairs.push([group1, group2])
+          }
+        }
+      }
+
+      return pairs
     },
   },
 
@@ -309,6 +349,42 @@ export const useTablePlannerStore = defineStore('tablePlanner', {
     highlightGroup(groupId: string | null): void {
       this.highlightedGroupId = groupId
       // Don't persist - it's transient UI state
+    },
+
+    /**
+     * Add a preference constraint between two groups
+     */
+    addPreferenceConstraint(group1Id: string, group2Id: string, preference: MatchPreference): void {
+      // Don't add constraint for neutral preference
+      if (preference === MatchPreference.NEUTRAL) {
+        return
+      }
+
+      // Check if constraint already exists
+      const existingConstraint = this.constraints.find(c => {
+        if (c.type === ConstraintType.SAME_TABLE) return false
+        return c.groupIds.includes(group1Id) && c.groupIds.includes(group2Id)
+      })
+
+      if (existingConstraint) {
+        console.warn('Constraint already exists between these groups')
+        return
+      }
+
+      // Map preference to constraint type
+      const constraintType = preference === MatchPreference.LIKE
+        ? ConstraintType.NEARBY
+        : ConstraintType.DIFFERENT_TABLES
+
+      // Create new constraint
+      this.constraints.push({
+        id: crypto.randomUUID(),
+        type: constraintType,
+        groupIds: [group1Id, group2Id],
+        weight: 0.5, // Lower priority than SAME_TABLE
+      })
+
+      this.persistState()
     },
 
     /**

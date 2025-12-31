@@ -4,6 +4,7 @@ import { ref } from 'vue'
 const emit = defineEmits<{
   'add:table': []
   'import:csv': [file: File]
+  'start:matching': []
 }>()
 
 const fileInput = ref<HTMLInputElement>()
@@ -23,6 +24,10 @@ function handleFileSelect(event: Event) {
     emit('import:csv', file)
   }
 }
+
+function handleStartMatching() {
+  emit('start:matching')
+}
 </script>
 
 <template>
@@ -36,6 +41,10 @@ function handleFileSelect(event: Event) {
       <button @click="triggerFileInput" class="toolbar-button import-button">
         <span class="button-icon">📜</span>
         Import CSV
+      </button>
+      <button @click="handleStartMatching" class="toolbar-button match-button">
+        <span class="button-icon">💕</span>
+        Match Groups
       </button>
       <button @click="handleAddTable" class="toolbar-button add-table-button">
         <span class="button-icon">+</span>

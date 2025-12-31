@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useTablePlannerStore } from '../stores/tablePlanner'
 import { TABLE_DEFAULTS } from '../types'
 import PlannerToolbar from './PlannerToolbar.vue'
 import PlannerCanvas from './PlannerCanvas.vue'
 import GuestList from './GuestList.vue'
+import GroupMatcher from './GroupMatcher.vue'
 
 const store = useTablePlannerStore()
+const showMatcher = ref(false)
 
 // Handle keyboard events
 function handleKeyDown(event: KeyboardEvent) {
@@ -73,6 +75,14 @@ function handleImportCSV(file: File) {
     alert('Failed to import CSV file. Please check the format.')
   })
 }
+
+function handleStartMatching() {
+  showMatcher.value = true
+}
+
+function handleCloseMatcher() {
+  showMatcher.value = false
+}
 </script>
 
 <template>
@@ -80,6 +90,7 @@ function handleImportCSV(file: File) {
     <PlannerToolbar
       @add:table="handleAddTable"
       @import:csv="handleImportCSV"
+      @start:matching="handleStartMatching"
     />
     <div class="main-content">
       <GuestList class="guest-pane" />
@@ -94,6 +105,7 @@ function handleImportCSV(file: File) {
         />
       </div>
     </div>
+    <GroupMatcher v-if="showMatcher" @close="handleCloseMatcher" />
   </div>
 </template>
 
