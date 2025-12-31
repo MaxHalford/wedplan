@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "build": "vue-tsc --noEmit && vite build",
+    "build:deploy": "vue-tsc --noEmit && VITE_BASE_PATH=/squill/ vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
+    "lint": "eslint . --ext .vue,.ts,.js,.tsx",
+    "lint:fix": "eslint . --ext .vue,.ts,.js,.tsx --fix"
   },
   "dependencies": {
     "@vueuse/gesture": "^2.0.0",
