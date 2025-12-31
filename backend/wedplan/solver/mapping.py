@@ -6,13 +6,8 @@ use in the CP-SAT model.
 
 from dataclasses import dataclass, field
 
-from wedplan.domain.errors import (
-    DuplicateGroupMemberError,
-    DuplicateIdError,
-    GroupTooLargeError,
-    GuestNotFoundError,
-)
-from wedplan.domain.models import AdjacentGroup, GuestIn, OptimizeRequest, TableIn
+from wedplan.domain.errors import DuplicateIdError, GuestNotFoundError
+from wedplan.domain.models import GroupIn, GuestIn, OptimizeRequest, TableIn
 
 
 @dataclass(frozen=True)
@@ -48,23 +43,40 @@ class GuestInfo:
 
 
 @dataclass(frozen=True)
+class GroupInfo:
+    """Group metadata for solver.
+
+    Attributes:
+        id: Original string ID.
+        index: Contiguous integer index.
+        guest_indices: Tuple of guest indices in this group.
+    """
+
+    id: str
+    index: int
+    guest_indices: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class ProblemMapping:
     """Complete mapping from request IDs to solver indices.
 
     Attributes:
         tables: List of table info, indexed by table index.
         guests: List of guest info, indexed by guest index.
+        groups: List of group info, indexed by group index.
         guest_id_to_index: Map from guest ID to index.
         table_id_to_index: Map from table ID to index.
-        adjacent_groups: Groups of guest indices that must sit contiguously.
+        group_id_to_index: Map from group ID to index.
         total_seats: Sum of all table capacities.
     """
 
     tables: tuple[TableInfo, ...]
     guests: tuple[GuestInfo, ...]
+    groups: tuple[GroupInfo, ...]
     guest_id_to_index: dict[str, int] = field(default_factory=dict)
     table_id_to_index: dict[str, int] = field(default_factory=dict)
-    adjacent_groups: tuple[tuple[int, ...], ...] = field(default_factory=tuple)
+    group_id_to_index: dict[str, int] = field(default_factory=dict)
     total_seats: int = 0
 
     @property
@@ -77,10 +89,13 @@ class ProblemMapping:
         """Number of tables."""
         return len(self.tables)
 
+    @property
+    def num_groups(self) -> int:
+        """Number of groups."""
+        return len(self.groups)
 
-def _validate_unique_ids(
-    items: list[TableIn] | list[GuestIn], entity_type: str
-) -> None:
+
+def _validate_unique_ids(items: list[TableIn] | list[GuestIn], entity_type: str) -> None:
     """Validate that all IDs are unique.
 
     Args:
@@ -109,55 +124,59 @@ def _build_guest_id_map(guests: list[GuestIn]) -> dict[str, int]:
     return {guest.id: i for i, guest in enumerate(guests)}
 
 
-def _validate_adjacent_groups(
-    groups: list[AdjacentGroup],
-    id_to_index: dict[str, int],
-    max_capacity: int,
-) -> tuple[tuple[int, ...], ...]:
-    """Validate and convert adjacent groups to index tuples.
-
-    Validates:
-    - All guest IDs exist
-    - No duplicate guests within a group
-    - Group size does not exceed max table capacity
+def _validate_unique_group_ids(groups: list[GroupIn]) -> None:
+    """Validate that all group IDs are unique.
 
     Args:
-        groups: List of adjacent groups from request.
-        id_to_index: Guest ID to index mapping.
-        max_capacity: Maximum table capacity.
-
-    Returns:
-        Tuple of groups, each group is a tuple of guest indices.
+        groups: List of groups.
 
     Raises:
-        GuestNotFoundError: If guest ID not found.
-        DuplicateGroupMemberError: If guest appears twice in same group.
-        GroupTooLargeError: If group exceeds max table capacity.
+        DuplicateIdError: If duplicate group ID found.
     """
-    result: list[tuple[int, ...]] = []
-
+    seen: set[str] = set()
     for group in groups:
-        # Check group size fits in at least one table
-        if len(group.guest_ids) > max_capacity:
-            raise GroupTooLargeError(len(group.guest_ids), max_capacity)
+        if group.id in seen:
+            raise DuplicateIdError("group", group.id)
+        seen.add(group.id)
 
-        # Validate and convert guest IDs to indices
-        seen: set[str] = set()
-        indices: list[int] = []
 
+def _build_group_info(
+    groups: list[GroupIn],
+    guest_id_to_index: dict[str, int],
+) -> tuple[tuple[GroupInfo, ...], dict[str, int]]:
+    """Build group info and mapping.
+
+    Args:
+        groups: List of groups from request.
+        guest_id_to_index: Mapping from guest ID to index.
+
+    Returns:
+        Tuple of (group info tuple, group_id_to_index dict).
+
+    Raises:
+        GuestNotFoundError: If a group references unknown guest ID.
+    """
+    group_id_to_index: dict[str, int] = {}
+    group_infos: list[GroupInfo] = []
+
+    for i, group in enumerate(groups):
+        # Validate all guest IDs exist
+        guest_indices: list[int] = []
         for guest_id in group.guest_ids:
-            if guest_id not in id_to_index:
-                raise GuestNotFoundError(guest_id, "adjacent_group")
+            if guest_id not in guest_id_to_index:
+                raise GuestNotFoundError(guest_id, f"group '{group.id}'")
+            guest_indices.append(guest_id_to_index[guest_id])
 
-            if guest_id in seen:
-                raise DuplicateGroupMemberError(guest_id)
+        group_id_to_index[group.id] = i
+        group_infos.append(
+            GroupInfo(
+                id=group.id,
+                index=i,
+                guest_indices=tuple(guest_indices),
+            )
+        )
 
-            seen.add(guest_id)
-            indices.append(id_to_index[guest_id])
-
-        result.append(tuple(indices))
-
-    return tuple(result)
+    return tuple(group_infos), group_id_to_index
 
 
 def create_mapping(request: OptimizeRequest) -> ProblemMapping:
@@ -173,14 +192,13 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
         Complete problem mapping.
 
     Raises:
-        DuplicateIdError: If duplicate table or guest ID.
-        GuestNotFoundError: If guest reference invalid.
-        DuplicateGroupMemberError: If guest appears twice in same group.
-        GroupTooLargeError: If adjacent group exceeds max table capacity.
+        DuplicateIdError: If duplicate table, guest, or group ID.
+        GuestNotFoundError: If a group references unknown guest ID.
     """
     # Validate uniqueness
     _validate_unique_ids(request.tables, "table")
     _validate_unique_ids(request.guests, "guest")
+    _validate_unique_group_ids(request.groups)
 
     # Build table mapping
     table_id_to_index = {t.id: i for i, t in enumerate(request.tables)}
@@ -197,14 +215,6 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
     # Build guest mapping
     guest_id_to_index = _build_guest_id_map(request.guests)
 
-    # Compute max table capacity for group validation
-    max_capacity = max(t.capacity for t in request.tables)
-
-    # Validate adjacent groups
-    adjacent_groups = _validate_adjacent_groups(
-        request.adjacent_groups, guest_id_to_index, max_capacity
-    )
-
     # Build guest info
     guests = tuple(
         GuestInfo(
@@ -215,13 +225,17 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
         for i, g in enumerate(request.guests)
     )
 
+    # Build group mapping
+    groups, group_id_to_index = _build_group_info(request.groups, guest_id_to_index)
+
     total_seats = sum(t.capacity for t in request.tables)
 
     return ProblemMapping(
         tables=tables,
         guests=guests,
+        groups=groups,
         guest_id_to_index=guest_id_to_index,
         table_id_to_index=table_id_to_index,
-        adjacent_groups=adjacent_groups,
+        group_id_to_index=group_id_to_index,
         total_seats=total_seats,
     )

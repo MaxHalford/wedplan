@@ -18,10 +18,7 @@ router = APIRouter()
         "while respecting partner adjacency and same-table constraints."
     ),
     responses={
-        422: {
-            "description": "Validation error (invalid guest/table references, "
-            "asymmetric partners, etc.)"
-        },
+        422: {"description": "Validation error (invalid guest/table references, asymmetric partners, etc.)"},
     },
 )
 def optimize(request: OptimizeRequest) -> OptimizeResponse:

@@ -43,66 +43,40 @@ class GuestIn(BaseModel):
     name: StrictStr
 
 
-class AdjacentGroup(BaseModel):
-    """A group of guests that must sit in contiguous seats.
-
-    All members will occupy consecutive seats at the same table.
-    The order within the group is flexible (any permutation allowed).
+class GroupIn(BaseModel):
+    """A group of guests that must sit together at the same table.
 
     Attributes:
-        guest_ids: List of guest IDs that must sit adjacent.
+        id: Unique identifier for the group.
+        guest_ids: List of guest IDs that must share a table.
     """
 
     model_config = ConfigDict(strict=True)
 
-    guest_ids: list[StrictStr] = Field(min_length=2)
+    id: StrictStr
+    guest_ids: list[StrictStr] = Field(min_length=1)
 
 
 class AffinityEdgeIn(BaseModel):
-    """Affinity score between two guests.
+    """Affinity score between two groups.
 
     Affinity edges are unordered pairs. The solver maximizes total
-    affinity for guests seated at the same table.
+    affinity for groups seated at the same table.
 
     Attributes:
-        a: First guest ID.
-        b: Second guest ID.
-        score: Affinity score (>= 0). Higher means prefer same table.
-        adjacency_bonus: Optional extra score if guests are adjacent seats.
+        a: First group ID.
+        b: Second group ID.
+        score: Affinity score in {-1, 0, 1}.
+            +1: Soft preference to be at same table.
+            -1: Soft preference to NOT be at same table.
+             0: No preference.
     """
 
     model_config = ConfigDict(strict=True)
 
     a: StrictStr
     b: StrictStr
-    score: StrictInt = Field(ge=0, description="Same-table affinity score")
-    adjacency_bonus: StrictInt | None = Field(
-        default=None, ge=0, description="Extra score for adjacent seats"
-    )
-
-
-class SameTableGroup(BaseModel):
-    """A group of guests that must be seated at the same table.
-
-    Attributes:
-        guest_ids: List of guest IDs that must share a table.
-    """
-
-    model_config = ConfigDict(strict=True)
-
-    guest_ids: list[StrictStr] = Field(min_length=2)
-
-
-class SameTableConstraintIn(BaseModel):
-    """Same-table constraints specification.
-
-    Attributes:
-        groups: List of guest groups that must share tables.
-    """
-
-    model_config = ConfigDict(strict=True)
-
-    groups: list[SameTableGroup] = Field(default_factory=list)
+    score: StrictInt = Field(ge=-1, le=1, description="Affinity score: -1, 0, or 1")
 
 
 class SolveOptions(BaseModel):
@@ -111,7 +85,6 @@ class SolveOptions(BaseModel):
     Attributes:
         time_limit_seconds: Maximum solver runtime.
         num_workers: Number of parallel search workers.
-        adjacency_bonus_weight: Multiplier for adjacency bonus scores.
         allow_empty_seats: Whether seats can remain unassigned.
     """
 
@@ -119,7 +92,6 @@ class SolveOptions(BaseModel):
 
     time_limit_seconds: float = Field(default=5.0, gt=0)
     num_workers: StrictInt = Field(default=1, ge=1)
-    adjacency_bonus_weight: StrictInt = Field(default=1, ge=0)
     allow_empty_seats: bool = True
 
 
@@ -129,9 +101,8 @@ class OptimizeRequest(BaseModel):
     Attributes:
         tables: List of tables with capacities.
         guests: List of guests to seat.
-        affinities: Sparse list of affinity edges (missing pairs score 0).
-        adjacent_groups: Groups of guests that must sit in contiguous seats.
-        same_table: Optional same-table constraints.
+        groups: List of guest groups (guests in a group must sit together).
+        affinities: Sparse list of affinity edges between groups (missing pairs score 0).
         options: Solver options.
     """
 
@@ -139,9 +110,8 @@ class OptimizeRequest(BaseModel):
 
     tables: list[TableIn] = Field(min_length=1)
     guests: list[GuestIn] = Field(min_length=1)
+    groups: list[GroupIn] = Field(default_factory=list)
     affinities: list[AffinityEdgeIn] = Field(default_factory=list)
-    adjacent_groups: list[AdjacentGroup] = Field(default_factory=list)
-    same_table: SameTableConstraintIn | None = None
     options: SolveOptions = Field(default_factory=SolveOptions)
 
 
