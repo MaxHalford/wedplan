@@ -38,28 +38,24 @@ class DuplicateIdError(ValidationError):
         super().__init__(f"Duplicate {entity_type} ID: '{entity_id}'")
 
 
-class PartnerCycleError(ValidationError):
-    """Invalid partner relationship detected (e.g., self-partner)."""
+class GroupTooLargeError(ValidationError):
+    """Adjacent group is larger than any table capacity."""
 
-    def __init__(self, guest_id: str, partner_id: str) -> None:
+    def __init__(self, group_size: int, max_capacity: int) -> None:
+        self.group_size = group_size
+        self.max_capacity = max_capacity
+        super().__init__(
+            f"Adjacent group of {group_size} members exceeds "
+            f"maximum table capacity of {max_capacity}"
+        )
+
+
+class DuplicateGroupMemberError(ValidationError):
+    """Same guest appears multiple times in an adjacent group."""
+
+    def __init__(self, guest_id: str) -> None:
         self.guest_id = guest_id
-        self.partner_id = partner_id
-        super().__init__(
-            f"Invalid partner relationship: guest '{guest_id}' "
-            f"with partner '{partner_id}'"
-        )
-
-
-class AsymmetricPartnerError(ValidationError):
-    """Partner relationship is not symmetric."""
-
-    def __init__(self, guest_a: str, guest_b: str) -> None:
-        self.guest_a = guest_a
-        self.guest_b = guest_b
-        super().__init__(
-            f"Asymmetric partner: '{guest_a}' -> '{guest_b}' but "
-            f"'{guest_b}' does not reference '{guest_a}'"
-        )
+        super().__init__(f"Duplicate guest '{guest_id}' in adjacent group")
 
 
 class CapacityError(ValidationError):

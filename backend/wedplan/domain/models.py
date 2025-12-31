@@ -35,14 +35,27 @@ class GuestIn(BaseModel):
     Attributes:
         id: Unique identifier for the guest.
         name: Display name.
-        partner_id: ID of partner (must sit adjacent). Symmetric relationship.
     """
 
     model_config = ConfigDict(strict=True)
 
     id: StrictStr
     name: StrictStr
-    partner_id: StrictStr | None = None
+
+
+class AdjacentGroup(BaseModel):
+    """A group of guests that must sit in contiguous seats.
+
+    All members will occupy consecutive seats at the same table.
+    The order within the group is flexible (any permutation allowed).
+
+    Attributes:
+        guest_ids: List of guest IDs that must sit adjacent.
+    """
+
+    model_config = ConfigDict(strict=True)
+
+    guest_ids: list[StrictStr] = Field(min_length=2)
 
 
 class AffinityEdgeIn(BaseModel):
@@ -117,6 +130,7 @@ class OptimizeRequest(BaseModel):
         tables: List of tables with capacities.
         guests: List of guests to seat.
         affinities: Sparse list of affinity edges (missing pairs score 0).
+        adjacent_groups: Groups of guests that must sit in contiguous seats.
         same_table: Optional same-table constraints.
         options: Solver options.
     """
@@ -126,6 +140,7 @@ class OptimizeRequest(BaseModel):
     tables: list[TableIn] = Field(min_length=1)
     guests: list[GuestIn] = Field(min_length=1)
     affinities: list[AffinityEdgeIn] = Field(default_factory=list)
+    adjacent_groups: list[AdjacentGroup] = Field(default_factory=list)
     same_table: SameTableConstraintIn | None = None
     options: SolveOptions = Field(default_factory=SolveOptions)
 

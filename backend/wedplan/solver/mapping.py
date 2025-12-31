@@ -7,12 +7,12 @@ use in the CP-SAT model.
 from dataclasses import dataclass, field
 
 from wedplan.domain.errors import (
-    AsymmetricPartnerError,
+    DuplicateGroupMemberError,
     DuplicateIdError,
+    GroupTooLargeError,
     GuestNotFoundError,
-    PartnerCycleError,
 )
-from wedplan.domain.models import GuestIn, OptimizeRequest, TableIn
+from wedplan.domain.models import AdjacentGroup, GuestIn, OptimizeRequest, TableIn
 
 
 @dataclass(frozen=True)
@@ -40,13 +40,11 @@ class GuestInfo:
         id: Original string ID.
         index: Contiguous integer index.
         name: Display name.
-        partner_index: Index of partner guest, or None.
     """
 
     id: str
     index: int
     name: str
-    partner_index: int | None
 
 
 @dataclass(frozen=True)
@@ -58,7 +56,7 @@ class ProblemMapping:
         guests: List of guest info, indexed by guest index.
         guest_id_to_index: Map from guest ID to index.
         table_id_to_index: Map from table ID to index.
-        partner_pairs: Set of (i, j) partner pairs where i < j.
+        adjacent_groups: Groups of guest indices that must sit contiguously.
         total_seats: Sum of all table capacities.
     """
 
@@ -66,9 +64,7 @@ class ProblemMapping:
     guests: tuple[GuestInfo, ...]
     guest_id_to_index: dict[str, int] = field(default_factory=dict)
     table_id_to_index: dict[str, int] = field(default_factory=dict)
-    partner_pairs: frozenset[tuple[int, int]] = field(
-        default_factory=lambda: frozenset()
-    )
+    adjacent_groups: tuple[tuple[int, ...], ...] = field(default_factory=tuple)
     total_seats: int = 0
 
     @property
@@ -113,62 +109,55 @@ def _build_guest_id_map(guests: list[GuestIn]) -> dict[str, int]:
     return {guest.id: i for i, guest in enumerate(guests)}
 
 
-def _validate_partner_relationships(
-    guests: list[GuestIn], id_to_index: dict[str, int]
-) -> frozenset[tuple[int, int]]:
-    """Validate and extract partner pairs.
+def _validate_adjacent_groups(
+    groups: list[AdjacentGroup],
+    id_to_index: dict[str, int],
+    max_capacity: int,
+) -> tuple[tuple[int, ...], ...]:
+    """Validate and convert adjacent groups to index tuples.
 
     Validates:
-    - Partners exist
-    - No self-partnering
-    - Symmetric relationships
+    - All guest IDs exist
+    - No duplicate guests within a group
+    - Group size does not exceed max table capacity
 
     Args:
-        guests: List of guests.
+        groups: List of adjacent groups from request.
         id_to_index: Guest ID to index mapping.
+        max_capacity: Maximum table capacity.
 
     Returns:
-        Set of partner pairs (i, j) where i < j.
+        Tuple of groups, each group is a tuple of guest indices.
 
     Raises:
-        GuestNotFoundError: If partner ID not found.
-        PartnerCycleError: If guest partners with self.
-        AsymmetricPartnerError: If relationship not symmetric.
+        GuestNotFoundError: If guest ID not found.
+        DuplicateGroupMemberError: If guest appears twice in same group.
+        GroupTooLargeError: If group exceeds max table capacity.
     """
-    pairs: set[tuple[int, int]] = set()
+    result: list[tuple[int, ...]] = []
 
-    for guest in guests:
-        if guest.partner_id is None:
-            continue
+    for group in groups:
+        # Check group size fits in at least one table
+        if len(group.guest_ids) > max_capacity:
+            raise GroupTooLargeError(len(group.guest_ids), max_capacity)
 
-        # Check partner exists
-        if guest.partner_id not in id_to_index:
-            raise GuestNotFoundError(guest.partner_id, "partner_id reference")
+        # Validate and convert guest IDs to indices
+        seen: set[str] = set()
+        indices: list[int] = []
 
-        # Check not self-partner
-        if guest.partner_id == guest.id:
-            raise PartnerCycleError(guest.id, guest.partner_id)
+        for guest_id in group.guest_ids:
+            if guest_id not in id_to_index:
+                raise GuestNotFoundError(guest_id, "adjacent_group")
 
-        # Get indices
-        i = id_to_index[guest.id]
-        j = id_to_index[guest.partner_id]
+            if guest_id in seen:
+                raise DuplicateGroupMemberError(guest_id)
 
-        # Add canonical pair (smaller index first)
-        pair = (min(i, j), max(i, j))
-        pairs.add(pair)
+            seen.add(guest_id)
+            indices.append(id_to_index[guest_id])
 
-    # Verify symmetry
-    for guest in guests:
-        if guest.partner_id is None:
-            continue
+        result.append(tuple(indices))
 
-        partner_idx = id_to_index[guest.partner_id]
-        partner_guest = guests[partner_idx]
-
-        if partner_guest.partner_id != guest.id:
-            raise AsymmetricPartnerError(guest.id, guest.partner_id)
-
-    return frozenset(pairs)
+    return tuple(result)
 
 
 def create_mapping(request: OptimizeRequest) -> ProblemMapping:
@@ -185,9 +174,9 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
 
     Raises:
         DuplicateIdError: If duplicate table or guest ID.
-        GuestNotFoundError: If partner reference invalid.
-        PartnerCycleError: If self-partnering detected.
-        AsymmetricPartnerError: If partner relationship not symmetric.
+        GuestNotFoundError: If guest reference invalid.
+        DuplicateGroupMemberError: If guest appears twice in same group.
+        GroupTooLargeError: If adjacent group exceeds max table capacity.
     """
     # Validate uniqueness
     _validate_unique_ids(request.tables, "table")
@@ -208,16 +197,20 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
     # Build guest mapping
     guest_id_to_index = _build_guest_id_map(request.guests)
 
-    # Validate partners and get pairs
-    partner_pairs = _validate_partner_relationships(request.guests, guest_id_to_index)
+    # Compute max table capacity for group validation
+    max_capacity = max(t.capacity for t in request.tables)
 
-    # Build guest info with resolved partner indices
+    # Validate adjacent groups
+    adjacent_groups = _validate_adjacent_groups(
+        request.adjacent_groups, guest_id_to_index, max_capacity
+    )
+
+    # Build guest info
     guests = tuple(
         GuestInfo(
             id=g.id,
             index=i,
             name=g.name,
-            partner_index=(guest_id_to_index[g.partner_id] if g.partner_id else None),
         )
         for i, g in enumerate(request.guests)
     )
@@ -229,6 +222,6 @@ def create_mapping(request: OptimizeRequest) -> ProblemMapping:
         guests=guests,
         guest_id_to_index=guest_id_to_index,
         table_id_to_index=table_id_to_index,
-        partner_pairs=partner_pairs,
+        adjacent_groups=adjacent_groups,
         total_seats=total_seats,
     )

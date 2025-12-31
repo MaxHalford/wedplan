@@ -1,7 +1,7 @@
 """Constraint builders for the CP-SAT model.
 
 Implements:
-- Partner adjacency constraints (must sit adjacent at same table)
+- Adjacent group constraints (must sit in contiguous seats at same table)
 - Same-table group constraints
 """
 
@@ -41,50 +41,76 @@ def add_assignment_constraints(
             model.add_at_most_one(x[g, t, s] for g in range(mapping.num_guests))
 
 
-def add_partner_adjacency_constraints(
+def add_adjacent_group_constraints(
     model: CpModel,
     x: dict[tuple[int, int, int], IntVar],
+    y: dict[tuple[int, int], IntVar],
     mapping: ProblemMapping,
 ) -> None:
-    """Add partner adjacency constraints.
+    """Add contiguous seating constraints for adjacent groups.
 
-    Partners must sit at the same table in adjacent seats.
-    Adjacency is circular: seat s has neighbors (s-1) mod cap and (s+1) mod cap.
+    All members of a group must sit at the same table in consecutive seats.
+    Order within the group is flexible (any permutation allowed).
 
-    For each partner pair (a, b) and each table t and seat s:
-        x[a, t, s] => (x[b, t, left] OR x[b, t, right])
+    For a group of N guests, they occupy a contiguous block of N seats.
+    The block wraps around circularly.
 
     Args:
         model: CP-SAT model.
         x: Decision variables x[g, t, s].
+        y: Table assignment variables y[g, t].
         mapping: Problem mapping.
     """
-    for a, b in mapping.partner_pairs:
+    for group_idx, group in enumerate(mapping.adjacent_groups):
+        n = len(group)
+
+        # Collect all possible block assignments (table, start_seat)
+        block_vars: list[IntVar] = []
+
         for t, table in enumerate(mapping.tables):
             cap = table.capacity
-            for s in range(cap):
-                left = (s - 1) % cap
-                right = (s + 1) % cap
 
-                # If a sits at (t, s), then b must sit at (t, left) or (t, right)
-                # x[a,t,s] => x[b,t,left] OR x[b,t,right]
-                # Equivalent to: NOT x[a,t,s] OR x[b,t,left] OR x[b,t,right]
-                model.add_bool_or(
-                    [
-                        x[a, t, s].Not(),
-                        x[b, t, left],
-                        x[b, t, right],
-                    ]
-                )
+            # Skip tables that can't fit the group
+            if n > cap:
+                continue
 
-                # Symmetric: if b sits at (t, s), a must be adjacent
-                model.add_bool_or(
-                    [
-                        x[b, t, s].Not(),
-                        x[a, t, left],
-                        x[a, t, right],
-                    ]
+            for start in range(cap):
+                # Block seats: start, start+1, ..., start+n-1 (mod cap)
+                block_seats = [(start + i) % cap for i in range(n)]
+
+                # Create variable: "group occupies this block"
+                block_var = model.new_bool_var(
+                    f"group_{group_idx}_table_{t}_start_{start}"
                 )
+                block_vars.append(block_var)
+
+                # If block_var is true, all group members are in block_seats
+                # and each block seat has exactly one group member
+                for g in group:
+                    # g must be in one of the block seats
+                    in_block = [x[g, t, s] for s in block_seats]
+                    # block_var => OR(in_block)
+                    model.add_bool_or([block_var.Not(), *in_block])
+
+                # Each block seat has exactly one group member (if block active)
+                for s in block_seats:
+                    guests_at_seat = [x[g, t, s] for g in group]
+                    # If block_var, exactly one group member at seat s
+                    # sum(guests_at_seat) >= 1 when block_var
+                    at_least_one = model.add(sum(guests_at_seat) >= 1)
+                    at_least_one.only_enforce_if(block_var)
+                    # sum <= 1 is already ensured by assignment constraints
+
+        # Exactly one block is chosen for this group
+        if block_vars:
+            model.add_exactly_one(block_vars)
+
+        # Also enforce same-table constraint for group members
+        if len(group) >= 2:
+            first = group[0]
+            for other in group[1:]:
+                for t in range(mapping.num_tables):
+                    model.add(y[first, t] == y[other, t])
 
 
 def add_same_table_constraints(
