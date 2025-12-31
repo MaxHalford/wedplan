@@ -114,4 +114,4 @@ def solve_seating(request: OptimizeRequest) -> OptimizeResponse:
     status = solver.solve(model)
 
     # Step 6: Extract and return solution
-    return extract_solution(solver, int(status), x, mapping)
+    return extract_solution(solver, status, x, mapping)
